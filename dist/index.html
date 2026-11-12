@@ -21,7 +21,10 @@
   <div id="appShell" hidden>
     <div class="workspace-ambient workspace-ambient-one"></div><div class="workspace-ambient workspace-ambient-two"></div>
     <header class="app-header">
-      <a class="brand" href="#" id="homeLink"><span class="brand-mark">A</span><span>Ajaia<span class="brand-muted">Docs</span></span></a>
+      <div class="header-left-group">
+        <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle menu" title="Toggle menu">☰</button>
+        <a class="brand" href="#" id="homeLink"><span class="brand-mark">A</span><span>Ajaia<span class="brand-muted">Docs</span></span></a>
+      </div>
       <div class="app-header-right">
         <span class="saved-chip"><i></i> All changes saved</span>
         <div class="user-pill" id="userPill" title="Click to switch or create account" hidden>
@@ -120,14 +123,14 @@
       </div>
 
       <!-- Create Account Form Panel -->
-      <form id="createAccountForm" class="auth-panel" novalidate>
+      <form id="createAccountForm" class="auth-panel" novalidate autocomplete="on">
         <div class="field-group">
           <label for="newUserName">Your Full Name</label>
-          <input type="text" id="newUserName" placeholder="e.g. Sachin Kannan" maxlength="60" required autocomplete="name">
+          <input type="text" id="newUserName" name="name" placeholder="e.g. Sachin Kannan" maxlength="60" required autocomplete="name" autocorrect="off">
         </div>
         <div class="field-group">
           <label for="newUserEmail">Email Address</label>
-          <input type="email" id="newUserEmail" placeholder="e.g. sachin@example.com" maxlength="120" required autocomplete="email">
+          <input type="email" id="newUserEmail" name="email" placeholder="e.g. sachin@example.com" maxlength="120" required autocomplete="email" autocapitalize="none" autocorrect="off">
         </div>
         <div id="authError" class="auth-error-msg" hidden></div>
         <button type="submit" class="primary-action modal-submit" id="createAccountSubmit">

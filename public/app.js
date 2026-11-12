@@ -6,16 +6,148 @@ let allUsers = [];
 let current = null;
 let timer = null;
 
+// Local storage helpers for static hosting / offline fallback
+function getLocalUsers() {
+  try {
+    return JSON.parse(localStorage.getItem("ajaia_local_users") || "[]");
+  } catch (e) {
+    return [];
+  }
+}
+function saveLocalUsers(list) {
+  try {
+    localStorage.setItem("ajaia_local_users", JSON.stringify(list));
+  } catch (e) {}
+}
+function getLocalDocs(userEmail) {
+  try {
+    const norm = (userEmail || "").toLowerCase();
+    const all = JSON.parse(localStorage.getItem("ajaia_local_docs") || "[]");
+    return all.filter((d) => d.owner.toLowerCase() === norm || (d.shares && d.shares.some((s) => s.email.toLowerCase() === norm)));
+  } catch (e) {
+    return [];
+  }
+}
+function saveLocalDoc(doc) {
+  try {
+    const all = JSON.parse(localStorage.getItem("ajaia_local_docs") || "[]");
+    const idx = all.findIndex((d) => d.id === doc.id);
+    if (idx >= 0) all[idx] = doc;
+    else all.push(doc);
+    localStorage.setItem("ajaia_local_docs", JSON.stringify(all));
+  } catch (e) {}
+}
+function deleteLocalDoc(id) {
+  try {
+    const all = JSON.parse(localStorage.getItem("ajaia_local_docs") || "[]");
+    const filtered = all.filter((d) => d.id !== id);
+    localStorage.setItem("ajaia_local_docs", JSON.stringify(filtered));
+  } catch (e) {}
+}
+function generateUUID() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return "doc_" + Math.random().toString(36).substring(2, 11) + "_" + Date.now();
+}
+
 async function api(url, options = {}) {
   options.headers = { ...(options.headers || {}), "x-user": user };
-  const r = await fetch(`/api${url}`, options);
-  const data = await r.json().catch(() => ({}));
-  if (r.status === 401 && url !== "/users") {
-    openAuthModal({ tab: "create", allowClose: false });
-    throw new Error(data.error || "Please sign in or create an account");
+  try {
+    const r = await fetch(`/api${url}`, options);
+    const ct = r.headers.get("content-type") || "";
+    if (ct.includes("application/json")) {
+      const data = await r.json().catch(() => ({}));
+      if (r.status === 401 && url !== "/users") {
+        openAuthModal({ tab: "create", allowClose: false });
+        throw new Error(data.error || "Please sign in or create an account");
+      }
+      if (!r.ok) throw new Error(data.error || "Request failed");
+      return data;
+    }
+  } catch (err) {
+    if (err.message && (err.message.includes("Please sign in") || err.message.includes("Request failed") || (!err.message.includes("fetch") && !err.message.includes("NetworkError")))) {
+      throw err;
+    }
   }
-  if (!r.ok) throw new Error(data.error || "Request failed");
-  return data;
+
+  // Fallback to local storage (e.g. static hosting on mobile/CDN without Node backend)
+  return handleLocalApi(url, options);
+}
+
+function handleLocalApi(url, options = {}) {
+  const method = (options.method || "GET").toUpperCase();
+
+  if (url === "/docs" && method === "GET") {
+    return getLocalDocs(user).map((d) => ({
+      ...d,
+      role: d.owner.toLowerCase() === user.toLowerCase() ? "owner" : (d.shares?.find((s) => s.email.toLowerCase() === user.toLowerCase())?.role || "view")
+    }));
+  }
+
+  if (url === "/docs" && method === "POST") {
+    const body = JSON.parse(options.body || "{}");
+    const doc = {
+      id: generateUUID(),
+      title: (body.title || "Untitled document").trim() || "Untitled document",
+      content: body.content || "<p></p>",
+      owner: user,
+      shares: [],
+      updatedAt: new Date().toISOString()
+    };
+    saveLocalDoc(doc);
+    return { ...doc, role: "owner" };
+  }
+
+  const docIdMatch = url.match(/^\/docs\/([^/]+)$/);
+  if (docIdMatch) {
+    const id = docIdMatch[1];
+    const all = JSON.parse(localStorage.getItem("ajaia_local_docs") || "[]");
+    const doc = all.find((d) => d.id === id);
+
+    if (method === "GET") {
+      if (!doc) throw new Error("Document not found");
+      return {
+        ...doc,
+        role: doc.owner.toLowerCase() === user.toLowerCase() ? "owner" : (doc.shares?.find((s) => s.email.toLowerCase() === user.toLowerCase())?.role || "view")
+      };
+    }
+
+    if (method === "PUT") {
+      if (!doc) throw new Error("Document not found");
+      const body = JSON.parse(options.body || "{}");
+      if (body.title !== undefined) doc.title = body.title.trim() || "Untitled document";
+      if (body.content !== undefined) doc.content = body.content;
+      doc.updatedAt = new Date().toISOString();
+      saveLocalDoc(doc);
+      return {
+        ...doc,
+        role: doc.owner.toLowerCase() === user.toLowerCase() ? "owner" : "view"
+      };
+    }
+
+    if (method === "DELETE") {
+      deleteLocalDoc(id);
+      return {};
+    }
+  }
+
+  const shareMatch = url.match(/^\/docs\/([^/]+)\/share$/);
+  if (shareMatch && method === "POST") {
+    const id = shareMatch[1];
+    const all = JSON.parse(localStorage.getItem("ajaia_local_docs") || "[]");
+    const doc = all.find((d) => d.id === id);
+    if (!doc) throw new Error("Document not found");
+    const { email, role } = JSON.parse(options.body || "{}");
+    const existing = doc.shares.find((s) => s.email.toLowerCase() === (email || "").toLowerCase());
+    if (existing) existing.role = role;
+    else doc.shares.push({ email, role });
+    doc.updatedAt = new Date().toISOString();
+    saveLocalDoc(doc);
+    return doc;
+  }
+
+  return {};
 }
 
 function showApp() {
@@ -53,14 +185,30 @@ function getInitials(name, email) {
 }
 
 async function loadUsers() {
+  let serverUsers = null;
   try {
     const r = await fetch("/api/users");
-    allUsers = await r.json();
-    updateUserSelects();
-    renderExistingUsers();
-  } catch (e) {
-    console.error("Failed to load users", e);
+    const ct = r.headers.get("content-type") || "";
+    if (r.ok && ct.includes("application/json")) {
+      serverUsers = await r.json();
+    }
+  } catch (e) {}
+
+  if (Array.isArray(serverUsers)) {
+    allUsers = serverUsers;
+    const localUsers = getLocalUsers();
+    // Merge any locally saved accounts
+    localUsers.forEach((lu) => {
+      if (!allUsers.some((su) => su.email.toLowerCase() === lu.email.toLowerCase())) {
+        allUsers.push(lu);
+      }
+    });
+  } else {
+    allUsers = getLocalUsers();
   }
+
+  updateUserSelects();
+  renderExistingUsers();
 }
 
 function updateUserSelects() {
@@ -132,6 +280,7 @@ function setUser(email) {
   $("userEmailDisplay").textContent = currentUserObj.email;
   $("userAvatar").textContent = getInitials(currentUserObj.name, currentUserObj.email);
   $("userPill").hidden = false;
+
   if ($("user").value !== user) {
     $("user").value = user;
   }
@@ -157,7 +306,11 @@ function openAuthModal({ tab = "create", allowClose = true } = {}) {
   $("authModal").hidden = false;
 
   if (tab === "create") {
-    setTimeout(() => $("newUserName").focus(), 100);
+    setTimeout(() => {
+      try {
+        $("newUserName").focus();
+      } catch (e) {}
+    }, 150);
   }
 }
 
@@ -202,19 +355,23 @@ function downloadDoc() {
 function renderDocs(docs) {
   $("mine").innerHTML = "";
   $("shared").innerHTML = "";
-  const mineDocs = docs.filter((d) => d.role === "owner");
-  const sharedDocs = docs.filter((d) => d.role !== "owner");
+  const mineDocs = (docs || []).filter((d) => d.role === "owner");
+  const sharedDocs = (docs || []).filter((d) => d.role !== "owner");
   $("mineCount").textContent = mineDocs.length;
   $("sharedCount").textContent = sharedDocs.length;
 
-  docs.forEach((d) => {
+  (docs || []).forEach((d) => {
     const row = document.createElement("div");
     row.className = "doc-row";
     const b = document.createElement("button");
     b.className = "doc";
     b.dataset.id = d.id;
     b.innerHTML = `<span class="doc-leading">${d.role === "owner" ? "▧" : "↗"}</span><span class="doc-copy"><b>${escapeText(d.title)}</b><span class="tag">${d.role === "owner" ? "Personal document" : `${escapeText(d.owner)} · ${d.role}`}</span></span>`;
-    b.onclick = () => openDoc(d.id);
+    b.onclick = () => {
+      openDoc(d.id);
+      // Close mobile sidebar on selection
+      $("appShell").classList.remove("sidebar-open");
+    };
     row.appendChild(b);
 
     if (d.role === "owner") {
@@ -317,12 +474,120 @@ function handleEnterApp() {
   }
 }
 
+async function submitCreateAccount(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const errorEl = $("authError");
+  errorEl.hidden = true;
+  errorEl.textContent = "";
+
+  const nameInput = $("newUserName");
+  const emailInput = $("newUserEmail");
+  const name = nameInput.value.trim();
+  const email = emailInput.value.trim();
+
+  if (!name) {
+    errorEl.textContent = "Please enter your name.";
+    errorEl.hidden = false;
+    nameInput.focus();
+    return;
+  }
+  if (!email) {
+    errorEl.textContent = "Please enter your email address.";
+    errorEl.hidden = false;
+    emailInput.focus();
+    return;
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email) || email.length > 120) {
+    errorEl.textContent = "Please enter a valid email address (e.g. name@domain.com).";
+    errorEl.hidden = false;
+    emailInput.focus();
+    return;
+  }
+
+  const submitBtn = $("createAccountSubmit");
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = `Creating account…`;
+
+  try {
+    await handleCreateAccount(name, email);
+  } catch (err) {
+    errorEl.textContent = err.message || "Failed to create account";
+    errorEl.hidden = false;
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = `Create Account & Enter <span>→</span>`;
+  }
+}
+
+async function handleCreateAccount(name, email) {
+  const normEmail = email.toLowerCase().trim();
+  let createdUser = null;
+
+  // 1. Try server API if backend exists
+  try {
+    const res = await fetch("/api/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email: normEmail })
+    });
+    const ct = res.headers.get("content-type") || "";
+    if (ct.includes("application/json")) {
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to create account");
+      }
+      createdUser = data;
+    }
+  } catch (err) {
+    if (err.message && !err.message.includes("fetch") && !err.message.includes("token") && !err.message.includes("JSON") && !err.message.includes("NetworkError")) {
+      throw err;
+    }
+  }
+
+  // 2. If server not available (e.g. static hosting on mobile/CDN), save in local browser storage
+  if (!createdUser) {
+    const localUsers = getLocalUsers();
+    if (localUsers.some((u) => u.email.toLowerCase() === normEmail)) {
+      throw new Error("An account with this email already exists");
+    }
+    createdUser = { name: name.trim(), email: normEmail };
+    localUsers.push(createdUser);
+    saveLocalUsers(localUsers);
+  }
+
+  await loadUsers();
+  setUser(createdUser.email);
+  closeAuthModal();
+  showApp();
+
+  current = null;
+  $("editorWrap").hidden = true;
+  $("empty").hidden = false;
+  await loadDocs();
+
+  message(`Welcome, ${createdUser.name}! Workspace created.`);
+}
+
 async function init() {
   await loadUsers();
 
   const savedUser = localStorage.getItem("ajaia_active_user");
   if (savedUser && allUsers.some((u) => u.email.toLowerCase() === savedUser.toLowerCase())) {
     setUser(savedUser);
+  } else {
+    user = "";
+    currentUserObj = null;
+    localStorage.removeItem("ajaia_active_user");
+    $("userPill").hidden = true;
+  }
+
+  // Mobile menu toggle
+  const mobileToggle = $("mobileMenuToggle");
+  if (mobileToggle) {
+    mobileToggle.onclick = () => {
+      $("appShell").classList.toggle("sidebar-open");
+    };
   }
 
   // Setup landing actions
@@ -355,59 +620,11 @@ async function init() {
     loadDocs();
   };
 
-  // Create account form
-  $("createAccountForm").onsubmit = async (e) => {
-    e.preventDefault();
-    const errorEl = $("authError");
-    errorEl.hidden = true;
-    errorEl.textContent = "";
-
-    const name = $("newUserName").value.trim();
-    const email = $("newUserEmail").value.trim();
-
-    if (!name) {
-      errorEl.textContent = "Please enter your name.";
-      errorEl.hidden = false;
-      return;
-    }
-    if (!email) {
-      errorEl.textContent = "Please enter an email address.";
-      errorEl.hidden = false;
-      return;
-    }
-
-    const submitBtn = $("createAccountSubmit");
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = `Creating account…`;
-
-    try {
-      const res = await fetch("/api/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to create account");
-      }
-
-      await loadUsers();
-      setUser(data.email);
-      closeAuthModal();
-      showApp();
-
-      current = null;
-      $("editorWrap").hidden = true;
-      $("empty").hidden = false;
-      await loadDocs();
-
-      message(`Welcome to Ajaia Docs, ${data.name}! Workspace created.`);
-    } catch (err) {
-      errorEl.textContent = err.message;
-      errorEl.hidden = false;
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = `Create Account & Enter <span>→</span>`;
+  // Create account form & button triggers
+  $("createAccountForm").onsubmit = submitCreateAccount;
+  $("createAccountSubmit").onclick = (e) => {
+    if (e.target.type !== "submit") {
+      submitCreateAccount(e);
     }
   };
 
@@ -421,6 +638,7 @@ async function init() {
       });
       await loadDocs();
       openDoc(d.id);
+      $("appShell").classList.remove("sidebar-open");
     } catch (e) {
       message(e.message);
     }
@@ -474,6 +692,7 @@ async function init() {
       const d = await api("/upload", { method: "POST", body: fd });
       await loadDocs();
       openDoc(d.id);
+      $("appShell").classList.remove("sidebar-open");
     } catch (e) {
       message(e.message);
     }
