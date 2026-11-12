@@ -1,0 +1,31 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const { createApp } = require("../server");
+
+test("sharing permissions, sanitization, and persistence", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ajaia-"));
+  const dataFile = path.join(dir, "data.json");
+  const server = createApp({ dataFile }).listen(0);
+  await new Promise((resolve) => server.once("listening", resolve));
+  const base = `http://127.0.0.1:${server.address().port}/api`;
+  const call = (url, user, options = {}) => fetch(base + url, { ...options, headers: { "x-user": user, ...(options.headers || {}) } });
+  const json = (r) => r.json();
+  const owner = "alice@ajaia.test", stranger = "bob@ajaia.test";
+  let r = await call("/docs", stranger); assert.equal(r.status, 200); assert.deepEqual(await json(r), []);
+  r = await call("/docs", owner, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "Shared", content: "<p>Hello</p>" }) });
+  const doc = await json(r);
+  r = await call(`/docs/${doc.id}`, stranger); assert.equal(r.status, 404);
+  r = await call(`/docs/${doc.id}/share`, owner, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: stranger, role: "view" }) }); assert.equal(r.status, 200);
+  r = await call("/docs", stranger); assert.equal((await json(r))[0].role, "view");
+  r = await call(`/docs/${doc.id}`, stranger, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ content: "<p>no</p>" }) }); assert.equal(r.status, 403);
+  await call(`/docs/${doc.id}/share`, owner, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: stranger, role: "edit" }) });
+  r = await call(`/docs/${doc.id}`, stranger, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ content: "<p>safe</p><script>alert(1)</script>" }) }); assert.equal(r.status, 200);
+  r = await call(`/docs/${doc.id}`, owner); const saved = await json(r); assert.equal(saved.content, "<p>safe</p>");
+  r = await call(`/docs/${doc.id}`, stranger, { method: "DELETE" }); assert.equal(r.status, 403);
+  r = await call(`/docs/${doc.id}`, owner, { method: "DELETE" }); assert.equal(r.status, 204);
+  r = await call(`/docs/${doc.id}`, owner); assert.equal(r.status, 404);
+  server.close(); assert.equal(JSON.parse(fs.readFileSync(dataFile, "utf8")).documents.length, 0);
+});
