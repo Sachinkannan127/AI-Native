@@ -5,7 +5,7 @@
   "description": "Lightweight collaborative document editor",
   "main": "server.js",
   "scripts": {
-    "build": "echo \"Build completed: no compile step required\"",
+    "build": "node build.js",
     "start": "node server.js",
     "test": "node --test test/api.test.js"
   },
