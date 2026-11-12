@@ -55,6 +55,10 @@ async function api(url, options = {}) {
   options.headers = { ...(options.headers || {}), "x-user": user };
   try {
     const r = await fetch(`/api${url}`, options);
+    // If route doesn't exist on host (404/405/500+), fall back to local storage
+    if (r.status === 404 || r.status === 405 || r.status >= 500) {
+      return handleLocalApi(url, options);
+    }
     const ct = r.headers.get("content-type") || "";
     if (ct.includes("application/json")) {
       const data = await r.json().catch(() => ({}));
@@ -62,11 +66,16 @@ async function api(url, options = {}) {
         openAuthModal({ tab: "create", allowClose: false });
         throw new Error(data.error || "Please sign in or create an account");
       }
-      if (!r.ok) throw new Error(data.error || "Request failed");
+      if (!r.ok) {
+        if (r.status === 400 || r.status === 403) {
+          throw new Error(data.error || "Request failed");
+        }
+        return handleLocalApi(url, options);
+      }
       return data;
     }
   } catch (err) {
-    if (err.message && (err.message.includes("Please sign in") || err.message.includes("Request failed") || (!err.message.includes("fetch") && !err.message.includes("NetworkError")))) {
+    if (err.message && (err.message.includes("Please sign in") || err.message.includes("View-only") || err.message.includes("Only the owner") || err.message.includes("Title is required") || err.message.includes("Request failed"))) {
       throw err;
     }
   }
@@ -529,18 +538,22 @@ async function handleCreateAccount(name, email) {
     const res = await fetch("/api/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email: normEmail })
+      body: JSON.stringify({ name: name.trim(), email: normEmail })
     });
-    const ct = res.headers.get("content-type") || "";
-    if (ct.includes("application/json")) {
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to create account");
+    if (res.status === 201 || res.status === 200) {
+      const ct = res.headers.get("content-type") || "";
+      if (ct.includes("application/json")) {
+        createdUser = await res.json();
       }
-      createdUser = data;
+    } else if (res.status === 409) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "An account with this email already exists");
+    } else if (res.status === 400) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Please enter a valid email address");
     }
   } catch (err) {
-    if (err.message && !err.message.includes("fetch") && !err.message.includes("token") && !err.message.includes("JSON") && !err.message.includes("NetworkError")) {
+    if (err.message && (err.message.includes("already exists") || err.message.includes("valid email") || err.message.includes("Invalid"))) {
       throw err;
     }
   }
