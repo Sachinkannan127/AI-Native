@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Ajaia Docs — Thoughtful work, beautifully organized</title><link rel="stylesheet" href="styles.css?v=3">
+  <title>Ajaia Docs — Thoughtful work, beautifully organized</title><link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
   <div id="landing">
@@ -17,14 +17,137 @@
     <section class="closing-cta" id="workflow"><div><div class="section-label">A BETTER STARTING POINT</div><h2>Make space for<br><em>what matters.</em></h2></div><button class="primary-action light" id="bottomOpen">Open Ajaia Docs <span>→</span></button></section>
     <footer><a class="brand" href="#"><span class="brand-mark">A</span><span>Ajaia<span class="brand-muted">Docs</span></span></a><span>Thoughtful tools for focused teams.</span><span>© 2026 Ajaia</span></footer>
   </div>
+
   <div id="appShell" hidden>
-  <div class="workspace-ambient workspace-ambient-one"></div><div class="workspace-ambient workspace-ambient-two"></div>
-  <header class="app-header"><a class="brand" href="#" id="homeLink"><span class="brand-mark">A</span><span>Ajaia<span class="brand-muted">Docs</span></span></a><div class="app-header-right"><span class="saved-chip"><i></i> All changes saved</span><label>Signed in as <select id="user"></select></label><button class="back-home" id="backHome">Home</button></div></header>
-  <div id="message" role="alert"></div>
-  <main>
-    <aside class="premium-sidebar"><div class="sidebar-heading"><span class="sidebar-eyebrow">YOUR SPACE</span><span class="sidebar-status"><i></i> Live</span></div><div class="sidebar-actions"><button id="new"><span class="action-plus">+</span><span><b>New document</b><small>Start with a blank page</small></span><kbd>N</kbd></button><label class="upload"><span class="upload-icon">↑</span><span><b>Import a file</b><small>TXT, MD or DOCX</small></span><input id="file" type="file" accept=".txt,.md,.docx"></label></div><div class="sidebar-divider"></div><nav class="sidebar-nav"><button class="sidebar-nav-item active"><span>⌂</span>Workspace</button><button class="sidebar-nav-item"><span>☆</span>Starred</button></nav><h3>My documents <span id="mineCount">0</span></h3><div id="mine"></div><h3>Shared with me <span id="sharedCount">0</span></h3><div id="shared"></div><div class="sidebar-footer"><div class="plan-card"><span class="plan-icon">✦</span><span><b>Personal workspace</b><small>Everything in one place</small></span><span class="plan-arrow">→</span></div><div class="sidebar-tip">Made for thoughtful work <span>✦</span></div></div></aside>
-    <section class="workspace"><div class="workspace-topline"><span>DOCUMENT STUDIO</span><span class="workspace-date">A quiet place for good work <i>✦</i></span></div><div class="empty" id="empty">Create or open a document to start writing.</div><div id="editorWrap" hidden><div class="editor-heading"><div class="editor-breadcrumb">Workspace <span>/</span> Documents <span>/</span> <b>Current document</b></div><div class="editor-actions"><span class="secure-note">⌁ Private workspace</span></div></div><div class="toolbar"><div class="toolbar-group"><button class="tool-button" data-cmd="bold" title="Bold"><b>B</b></button><button class="tool-button" data-cmd="italic" title="Italic"><i>I</i></button><button class="tool-button" data-cmd="underline" title="Underline"><u>U</u></button></div><div class="toolbar-separator"></div><div class="toolbar-group"><button class="tool-button format-button" data-cmd="formatBlock" data-value="h1">H1</button><button class="tool-button format-button" data-cmd="formatBlock" data-value="h2">H2</button><button class="tool-button format-button" data-cmd="formatBlock" data-value="p">Body</button></div><div class="toolbar-separator"></div><div class="toolbar-group"><button class="tool-button" data-cmd="insertUnorderedList">•</button><button class="tool-button" data-cmd="insertOrderedList">1.</button></div><div class="toolbar-fill"></div><span id="status"><i></i> Saved</span><button id="downloadBtn" class="download-button" title="Download Word document">↓ Word</button><button id="shareBtn" class="share-button">Share document <span>↗</span></button></div><div class="document-shell"><div class="document-meta"><span>EDITING MODE</span><span>Last saved automatically</span></div><input id="title" maxlength="120" placeholder="Untitled document"><div id="content" contenteditable="true" spellcheck="true"></div><div class="document-endmark">✦ &nbsp; End of document</div></div><div id="sharePanel" hidden><span class="share-label">Share with</span><select id="shareUser"></select><select id="shareRole"><option value="view">Can view</option><option value="edit">Can edit</option></select><button id="share">Save share</button></div></div></section>
-  </main>
-  </div><script src="app.js?v=5"></script>
+    <div class="workspace-ambient workspace-ambient-one"></div><div class="workspace-ambient workspace-ambient-two"></div>
+    <header class="app-header">
+      <a class="brand" href="#" id="homeLink"><span class="brand-mark">A</span><span>Ajaia<span class="brand-muted">Docs</span></span></a>
+      <div class="app-header-right">
+        <span class="saved-chip"><i></i> All changes saved</span>
+        <div class="user-pill" id="userPill" title="Click to switch or create account" hidden>
+          <span class="avatar-circle" id="userAvatar"></span>
+          <div class="user-meta">
+            <span class="user-display-name" id="userNameDisplay"></span>
+            <span class="user-display-email" id="userEmailDisplay"></span>
+          </div>
+          <span class="user-pill-caret">▾</span>
+        </div>
+        <select id="user" class="legacy-user-select" title="Active user"></select>
+        <button class="nav-account-btn" id="openAuthModalBtn" title="Create a new account or switch user">+ Account</button>
+        <button class="back-home" id="backHome">Home</button>
+      </div>
+    </header>
+    <div id="message" role="alert"></div>
+    <main>
+      <aside class="premium-sidebar">
+        <div class="sidebar-heading"><span class="sidebar-eyebrow">YOUR SPACE</span><span class="sidebar-status"><i></i> Live</span></div>
+        <div class="sidebar-actions">
+          <button id="new"><span class="action-plus">+</span><span><b>New document</b><small>Start with a blank page</small></span><kbd>N</kbd></button>
+          <label class="upload"><span class="upload-icon">↑</span><span><b>Import a file</b><small>TXT, MD or DOCX</small></span><input id="file" type="file" accept=".txt,.md,.docx"></label>
+        </div>
+        <div class="sidebar-divider"></div>
+        <nav class="sidebar-nav"><button class="sidebar-nav-item active"><span>⌂</span>Workspace</button><button class="sidebar-nav-item"><span>☆</span>Starred</button></nav>
+        <h3>My documents <span id="mineCount">0</span></h3><div id="mine"></div>
+        <h3>Shared with me <span id="sharedCount">0</span></h3><div id="shared"></div>
+        <div class="sidebar-footer">
+          <div class="plan-card"><span class="plan-icon">✦</span><span><b>Personal workspace</b><small>Everything in one place</small></span><span class="plan-arrow">→</span></div>
+          <div class="sidebar-tip">Made for thoughtful work <span>✦</span></div>
+        </div>
+      </aside>
+      <section class="workspace">
+        <div class="workspace-topline"><span>DOCUMENT STUDIO</span><span class="workspace-date">A quiet place for good work <i>✦</i></span></div>
+        <div class="empty" id="empty">Create or open a document to start writing.</div>
+        <div id="editorWrap" hidden>
+          <div class="editor-heading">
+            <div class="editor-breadcrumb">Workspace <span>/</span> Documents <span>/</span> <b>Current document</b></div>
+            <div class="editor-actions"><span class="secure-note">⌁ Private workspace</span></div>
+          </div>
+          <div class="toolbar">
+            <div class="toolbar-group">
+              <button class="tool-button" data-cmd="bold" title="Bold"><b>B</b></button>
+              <button class="tool-button" data-cmd="italic" title="Italic"><i>I</i></button>
+              <button class="tool-button" data-cmd="underline" title="Underline"><u>U</u></button>
+            </div>
+            <div class="toolbar-separator"></div>
+            <div class="toolbar-group">
+              <button class="tool-button format-button" data-cmd="formatBlock" data-value="h1">H1</button>
+              <button class="tool-button format-button" data-cmd="formatBlock" data-value="h2">H2</button>
+              <button class="tool-button format-button" data-cmd="formatBlock" data-value="p">Body</button>
+            </div>
+            <div class="toolbar-separator"></div>
+            <div class="toolbar-group">
+              <button class="tool-button" data-cmd="insertUnorderedList">•</button>
+              <button class="tool-button" data-cmd="insertOrderedList">1.</button>
+            </div>
+            <div class="toolbar-fill"></div>
+            <span id="status"><i></i> Saved</span>
+            <button id="downloadBtn" class="download-button" title="Download Word document">↓ Word</button>
+            <button id="shareBtn" class="share-button">Share document <span>↗</span></button>
+          </div>
+          <div class="document-shell">
+            <div class="document-meta"><span>EDITING MODE</span><span>Last saved automatically</span></div>
+            <input id="title" maxlength="120" placeholder="Untitled document">
+            <div id="content" contenteditable="true" spellcheck="true"></div>
+            <div class="document-endmark">✦ &nbsp; End of document</div>
+          </div>
+          <div id="sharePanel" hidden>
+            <span class="share-label">Share with</span>
+            <select id="shareUser"></select>
+            <select id="shareRole"><option value="view">Can view</option><option value="edit">Can edit</option></select>
+            <button id="share">Save share</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Dynamic Account Creation & Switcher Dialog -->
+  <div id="authModal" class="modal-backdrop" hidden>
+    <div class="modal-container" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-header">
+        <div class="modal-badge"><span class="brand-mark">A</span> <b>Ajaia Docs</b></div>
+        <button class="modal-close-btn" id="modalCloseBtn" aria-label="Close dialog" title="Close" hidden>✕</button>
+      </div>
+
+      <div class="modal-title-group">
+        <h2 id="modalTitle">Create your workspace</h2>
+        <p id="modalSubtitle">Enter your details to create an account and start writing.</p>
+      </div>
+
+      <div class="modal-tab-bar">
+        <button type="button" class="modal-tab active" id="tabCreate">Create Account</button>
+        <button type="button" class="modal-tab" id="tabExisting">Select Account</button>
+      </div>
+
+      <!-- Create Account Form Panel -->
+      <form id="createAccountForm" class="auth-panel" novalidate>
+        <div class="field-group">
+          <label for="newUserName">Your Full Name</label>
+          <input type="text" id="newUserName" placeholder="e.g. Sachin Kannan" maxlength="60" required autocomplete="name">
+        </div>
+        <div class="field-group">
+          <label for="newUserEmail">Email Address</label>
+          <input type="email" id="newUserEmail" placeholder="e.g. sachin@example.com" maxlength="120" required autocomplete="email">
+        </div>
+        <div id="authError" class="auth-error-msg" hidden></div>
+        <button type="submit" class="primary-action modal-submit" id="createAccountSubmit">
+          Create Account & Enter <span>→</span>
+        </button>
+        <div class="modal-switch-text">
+          Already have an account? <button type="button" class="link-btn" id="switchToExisting">Choose from registered accounts</button>
+        </div>
+      </form>
+
+      <!-- Choose Existing Account Panel -->
+      <div id="existingAccountsPanel" class="auth-panel" hidden>
+        <div class="existing-users-list" id="existingUsersList"></div>
+        <div class="modal-switch-text">
+          Want a new workspace? <button type="button" class="link-btn" id="switchToCreate">Create a new account</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=6"></script>
 </body>
 </html>

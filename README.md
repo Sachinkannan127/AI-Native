@@ -4,20 +4,20 @@
 
 Requires Node 18+. Run `npm install`, then `npm start`, and open `http://localhost:3000`. Set `DATA_FILE` to change the JSON store path (for example `DATA_FILE=./data.json npm start`; on PowerShell use `$env:DATA_FILE="./data.json"; npm start`). Run the test with `npm test`.
 
-Test accounts: `alice@ajaia.test`, `bob@ajaia.test`, and `carol@ajaia.test`.
+Accounts: Users can dynamically create accounts directly from the UI or via `POST /api/users`.
 
 ## Features and demo
 
-Create/rename documents, use the contenteditable rich-text toolbar, and rely on 700ms autosave. Import `.txt`, `.md`, or `.docx` files up to 5 MB. To demo sharing: sign in as Alice, create a document, choose Share, share it with Bob as `view`, switch to Bob and observe the disabled editor, then switch back to Alice and upgrade Bob to `edit`; Bob can now save edits. Documents and permissions survive refresh and restart.
+Create/rename documents, use the contenteditable rich-text toolbar, and rely on 700ms autosave. Dynamic onboarding prompts any user entering the application to create an account (name and email) or switch between existing accounts. Import `.txt`, `.md`, or `.docx` files up to 5 MB. To demo sharing: create an account, create a document, choose Share, share it with another registered user as `view`, switch user and observe the disabled editor, then switch back and upgrade to `edit`; the shared user can now save edits. Documents, users, and permissions survive refresh and restart.
 
 The app uses Express, a JSON file store, mocked header authentication, server-side HTML sanitization, Multer uploads, and Mammoth DOCX conversion. Errors are returned as `{ "error": "..." }`.
 
 ## Reviewer walkthrough
 
 1. Run `npm install`, `npm start`, and open `http://localhost:3000`.
-2. Click **Start writing**, create a document, try headings/lists, rename it, and reload the page to verify autosave and persistence.
+2. Click **Start writing**, create an account with your Name and Email, create a document, try headings/lists, rename it, and reload the page to verify autosave and persistence.
 3. Import a `.txt`, `.md`, or `.docx` file and confirm it becomes a new editable document.
-4. As Alice, share a document with Bob as `view`; switch to Bob and verify the editor is disabled. Upgrade Bob to `edit` and verify Bob can save.
+4. Create a second account, share a document with it as `view`, switch user and verify the editor is disabled. Upgrade the user to `edit` and verify they can save.
 5. Download the document as Word, delete an owned document, and run `npm test`.
 
 ## Evaluation alignment

@@ -11,9 +11,26 @@ test("sharing permissions, sanitization, and persistence", async () => {
   const server = createApp({ dataFile }).listen(0);
   await new Promise((resolve) => server.once("listening", resolve));
   const base = `http://127.0.0.1:${server.address().port}/api`;
-  const call = (url, user, options = {}) => fetch(base + url, { ...options, headers: { "x-user": user, ...(options.headers || {}) } });
+  const call = (url, user, options = {}) =>
+    fetch(base + url, {
+      ...options,
+      headers: { "x-user": user, connection: "close", ...(options.headers || {}) }
+    });
   const json = (r) => r.json();
-  const owner = "alice@ajaia.test", stranger = "bob@ajaia.test";
+  const owner = "owner@example.com", stranger = "stranger@example.com";
+
+  // Create test accounts dynamically
+  await fetch(`${base}/users`, {
+    method: "POST",
+    headers: { "content-type": "application/json", connection: "close" },
+    body: JSON.stringify({ name: "Owner", email: owner })
+  });
+  await fetch(`${base}/users`, {
+    method: "POST",
+    headers: { "content-type": "application/json", connection: "close" },
+    body: JSON.stringify({ name: "Stranger", email: stranger })
+  });
+
   let r = await call("/docs", stranger); assert.equal(r.status, 200); assert.deepEqual(await json(r), []);
   r = await call("/docs", owner, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "Shared", content: "<p>Hello</p>" }) });
   const doc = await json(r);
@@ -27,5 +44,112 @@ test("sharing permissions, sanitization, and persistence", async () => {
   r = await call(`/docs/${doc.id}`, stranger, { method: "DELETE" }); assert.equal(r.status, 403);
   r = await call(`/docs/${doc.id}`, owner, { method: "DELETE" }); assert.equal(r.status, 204);
   r = await call(`/docs/${doc.id}`, owner); assert.equal(r.status, 404);
-  server.close(); assert.equal(JSON.parse(fs.readFileSync(dataFile, "utf8")).documents.length, 0);
+  if (server.closeAllConnections) server.closeAllConnections();
+  await new Promise((resolve) => server.close(resolve));
+  assert.equal(JSON.parse(fs.readFileSync(dataFile, "utf8")).documents.length, 0);
+});
+
+test("dynamic user registration, validation, and multi-user collaboration", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ajaia-dynamic-"));
+  const dataFile = path.join(dir, "data.json");
+  const server = createApp({ dataFile }).listen(0);
+  await new Promise((resolve) => server.once("listening", resolve));
+  const base = `http://127.0.0.1:${server.address().port}/api`;
+  const json = (r) => r.json();
+
+  // 1. Initial users list starts empty (no demo accounts)
+  let res = await fetch(`${base}/users`, { headers: { connection: "close" } });
+  assert.equal(res.status, 200);
+  let users = await json(res);
+  assert.equal(users.length, 0);
+
+  // 2. Reject empty email
+  res = await fetch(`${base}/users`, {
+    method: "POST",
+    headers: { "content-type": "application/json", connection: "close" },
+    body: JSON.stringify({ name: "Tester" })
+  });
+  assert.equal(res.status, 400);
+
+  // 3. Reject invalid email
+  res = await fetch(`${base}/users`, {
+    method: "POST",
+    headers: { "content-type": "application/json", connection: "close" },
+    body: JSON.stringify({ name: "Tester", email: "invalid-email" })
+  });
+  assert.equal(res.status, 400);
+
+  // 4. Create new user dynamically
+  res = await fetch(`${base}/users`, {
+    method: "POST",
+    headers: { "content-type": "application/json", connection: "close" },
+    body: JSON.stringify({ name: "Sachin Kannan", email: "sachin@example.com" })
+  });
+  assert.equal(res.status, 201);
+  const created = await json(res);
+  assert.equal(created.email, "sachin@example.com");
+  assert.equal(created.name, "Sachin Kannan");
+
+  // 5. Reject duplicate email (case-insensitive)
+  res = await fetch(`${base}/users`, {
+    method: "POST",
+    headers: { "content-type": "application/json", connection: "close" },
+    body: JSON.stringify({ name: "Duplicate", email: "SACHIN@example.com" })
+  });
+  assert.equal(res.status, 409);
+
+  // 6. Dynamic user can authenticate and create a document
+  const call = (url, user, options = {}) =>
+    fetch(base + url, {
+      ...options,
+      headers: { "x-user": user, connection: "close", ...(options.headers || {}) }
+    });
+
+  res = await call("/docs", "sachin@example.com", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ title: "Sachin's First Doc", content: "<p>Dynamic user doc</p>" })
+  });
+  assert.equal(res.status, 201);
+  const newDoc = await json(res);
+  assert.equal(newDoc.owner, "sachin@example.com");
+
+  // 7. Create another user and share from Sachin to Second User
+  res = await fetch(`${base}/users`, {
+    method: "POST",
+    headers: { "content-type": "application/json", connection: "close" },
+    body: JSON.stringify({ name: "Colleague", email: "colleague@example.com" })
+  });
+  assert.equal(res.status, 201);
+
+  res = await call(`/docs/${newDoc.id}/share`, "sachin@example.com", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: "colleague@example.com", role: "view" })
+  });
+  assert.equal(res.status, 200);
+
+  // Colleague sees shared doc
+  res = await call("/docs", "colleague@example.com");
+  const colleagueDocs = await json(res);
+  assert.equal(colleagueDocs.length, 1);
+  assert.equal(colleagueDocs[0].id, newDoc.id);
+  assert.equal(colleagueDocs[0].role, "view");
+
+  // 8. Persistence check after server close
+  if (server.closeAllConnections) server.closeAllConnections();
+  await new Promise((resolve) => server.close(resolve));
+  const diskData = JSON.parse(fs.readFileSync(dataFile, "utf8"));
+  assert.ok(diskData.users.some((u) => u.email === "sachin@example.com"));
+  assert.ok(diskData.users.some((u) => u.email === "colleague@example.com"));
+
+  // 9. New server instance reads persisted dynamic user
+  const server2 = createApp({ dataFile }).listen(0);
+  await new Promise((resolve) => server2.once("listening", resolve));
+  const base2 = `http://127.0.0.1:${server2.address().port}/api`;
+  const res2 = await fetch(`${base2}/users`, { headers: { connection: "close" } });
+  const persistedUsers = await json(res2);
+  assert.ok(persistedUsers.some((u) => u.email === "sachin@example.com"));
+  if (server2.closeAllConnections) server2.closeAllConnections();
+  await new Promise((resolve) => server2.close(resolve));
 });
