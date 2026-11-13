@@ -544,6 +544,13 @@ html,body{margin:0;padding:0;width:100%;max-width:100%;overflow-x:hidden;-webkit
   flex-shrink: 0;
 }
 
+.nav-label-short {
+  display: none;
+}
+.hero-badges-wrap {
+  display: contents;
+}
+
 /* Floating Badges */
 .float-badge {
   position: absolute;
@@ -922,184 +929,432 @@ footer .brand {
     animation: none !important;
   }
 
-  /* Nav */
+  /* Site Navigation Mobile */
   .site-nav {
-    height: 64px;
+    height: auto !important;
+    min-height: 56px !important;
+    padding-top: max(8px, env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: 8px !important;
+    box-sizing: border-box !important;
   }
   .site-nav-inner {
-    padding: 0 var(--container-pad);
+    padding: 0 16px !important;
+    gap: 8px !important;
+    flex-wrap: nowrap !important;
+    justify-content: space-between !important;
   }
   .brand {
-    font-size: 18px;
-    gap: 8px;
+    font-size: 17px !important;
+    gap: 7px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
   }
   .brand-mark {
-    width: 26px;
-    height: 26px;
-    font-size: 15px;
-    border-radius: 8px 8px 8px 2px;
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 15px !important;
+    border-radius: 8px 8px 8px 2px !important;
+    flex-shrink: 0 !important;
+  }
+  .brand-muted {
+    display: none !important;
   }
   .nav-links {
-    gap: 8px;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex-shrink: 0 !important;
+    flex-wrap: nowrap !important;
   }
   .nav-links a {
-    display: none;
+    display: none !important;
   }
-  .nav-login {
-    padding: 8px 14px;
-    font-size: 11px;
-    white-space: nowrap;
+  .nav-label-long {
+    display: none !important;
   }
-  .nav-login span {
-    font-size: 13px;
-    margin-left: 4px;
+  .nav-label-short {
+    display: inline !important;
   }
   .nav-install-btn {
-    padding: 8px 12px;
-    font-size: 11px;
-    white-space: nowrap;
+    padding: 6px 10px !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    border-radius: 100px !important;
+  }
+  .nav-login {
+    padding: 6px 13px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    border-radius: 100px !important;
+  }
+  .nav-login span:last-child {
+    font-size: 12px !important;
+    margin-left: 3px !important;
   }
 
-  /* Hero */
+  /* Hero Section Mobile */
   .hero {
-    padding: 36px var(--container-pad) 44px;
-    gap: 36px;
+    padding: 24px 16px 36px !important;
+    gap: 28px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
   }
   .hero-copy {
-    width: 100%;
-    max-width: 100%;
+    width: 100% !important;
+    max-width: 100% !important;
+    align-items: flex-start !important;
+    text-align: left !important;
   }
   .eyebrow {
-    font-size: 9px;
-    letter-spacing: 0.16em;
+    font-size: 9px !important;
+    letter-spacing: 0.16em !important;
   }
   .hero h1 {
-    font-size: clamp(34px, 8.5vw, 46px);
-    line-height: 1.06;
-    letter-spacing: -0.04em;
-    margin: 14px 0 16px;
+    font-size: clamp(30px, 8.2vw, 42px) !important;
+    line-height: 1.08 !important;
+    letter-spacing: -0.04em !important;
+    margin: 12px 0 14px !important;
   }
   .hero-lede {
-    font-size: 15px;
-    line-height: 1.6;
-    max-width: 100%;
+    font-size: 14.5px !important;
+    line-height: 1.6 !important;
+    color: #5c6c63 !important;
+    max-width: 100% !important;
+    margin: 0 !important;
   }
   .hero-actions {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-    margin-top: 24px;
-    width: 100%;
-    max-width: 360px;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    margin-top: 22px !important;
+    width: 100% !important;
+    max-width: 320px !important;
   }
   .hero-actions .primary-action {
-    width: 100%;
-    justify-content: center;
-    text-align: center;
-    padding: 14px 20px;
-    font-size: 14px;
-    box-sizing: border-box;
+    width: 100% !important;
+    justify-content: center !important;
+    text-align: center !important;
+    padding: 13px 22px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+    box-sizing: border-box !important;
+    border-radius: 100px !important;
+  }
+  .hero-actions .primary-action span {
+    margin-left: 8px !important;
+    font-size: 16px !important;
+    display: inline-block !important;
   }
   .hero-actions .text-action {
-    text-align: center;
-    justify-content: center;
-    padding: 8px;
-    font-size: 12px;
-    width: 100%;
-    box-sizing: border-box;
+    text-align: center !important;
+    justify-content: center !important;
+    padding: 6px 12px !important;
+    font-size: 12.5px !important;
+    color: #63756c !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
-  .trust-row {
-    margin-top: 28px;
-    gap: 12px;
-    font-size: 11px;
-    line-height: 1.4;
-  }
-  .avatar-stack span {
-    width: 26px;
-    height: 26px;
-    font-size: 8px;
-  }
-
-  /* Hero Visual */
   .hero-feature-tags {
-    gap: 6px;
-    margin-top: 18px;
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    width: 100% !important;
+    max-width: 340px !important;
+    margin-top: 18px !important;
+    box-sizing: border-box !important;
   }
   .feature-tag {
-    padding: 4px 10px;
-    font-size: 10px;
+    padding: 6px 10px !important;
+    font-size: 10.5px !important;
+    font-weight: 500 !important;
+    color: #3b4e44 !important;
+    background: rgba(255, 255, 255, 0.78) !important;
+    border: 1px solid rgba(27, 41, 38, 0.08) !important;
+    border-radius: 8px !important;
+    white-space: nowrap !important;
+    box-shadow: 0 1px 3px rgba(27, 41, 38, 0.03) !important;
+    box-sizing: border-box !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
   }
+  .trust-row {
+    margin-top: 18px !important;
+    gap: 10px !important;
+    padding: 8px 12px !important;
+    background: rgba(255, 255, 255, 0.6) !important;
+    border: 1px solid rgba(27, 41, 38, 0.07) !important;
+    border-radius: 12px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    box-sizing: border-box !important;
+    font-size: 10.5px !important;
+    line-height: 1.35 !important;
+  }
+  .avatar-stack span {
+    width: 24px !important;
+    height: 24px !important;
+    font-size: 8px !important;
+  }
+
+  /* Hero Visual & Real White Editor Mockup Mobile */
   .hero-visual {
-    width: 100%;
-    max-width: 420px;
-    margin: 0 auto;
-    padding: 14px 0;
-    min-height: auto;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 8px auto 0 !important;
+    padding: 8px 0 16px !important;
+    min-height: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    box-sizing: border-box !important;
+    position: relative !important;
   }
   .glow {
-    width: 300px;
-    height: 300px;
+    display: none !important; /* Stop the washed-out green blob covering the mockup text */
   }
   .editor-mockup {
-    max-width: 100%;
-    border-radius: 12px;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: #ffffff !important;
+    border: 1px solid rgba(27, 41, 38, 0.12) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 12px 35px rgba(27, 41, 38, 0.08), 0 2px 6px rgba(27, 41, 38, 0.03) !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    position: relative !important;
+    z-index: 2 !important;
+    text-align: left !important;
+  }
+  .mockup-titlebar {
+    padding: 9px 12px !important;
+    background: #f7f9f7 !important;
+    border-bottom: 1px solid #e6ece7 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 6px !important;
+  }
+  .mockup-window-controls {
+    display: flex !important;
+    gap: 5px !important;
+    flex-shrink: 0 !important;
+  }
+  .win-dot {
+    width: 8px !important;
+    height: 8px !important;
+    border-radius: 50% !important;
+    display: inline-block !important;
+  }
+  .mockup-doc-title {
+    display: flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    font-size: 10.5px !important;
+    font-weight: 600 !important;
+    color: #2c3e34 !important;
+    min-width: 0 !important;
+    flex-shrink: 1 !important;
+  }
+  .mockup-doc-name {
+    max-width: 110px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+  .mockup-save-badge {
+    font-size: 8px !important;
+    padding: 1px 5px !important;
+    border-radius: 100px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    background: #e9f2eb !important;
+    color: #53755f !important;
+  }
+  .mockup-live-collab {
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    flex-shrink: 0 !important;
+  }
+  .collab-avatar {
+    width: 18px !important;
+    height: 18px !important;
+    font-size: 7.5px !important;
+  }
+  .mockup-toolbar {
+    padding: 6px 10px !important;
+    background: #ffffff !important;
+    border-bottom: 1px solid #edf1ee !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    gap: 6px !important;
+    scrollbar-width: none !important;
+  }
+  .mockup-toolbar::-webkit-scrollbar {
+    display: none !important;
+  }
+  .mockup-tools-left {
+    display: flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+    flex-shrink: 0 !important;
+  }
+  .mock-tool {
+    padding: 2px 6px !important;
+    font-size: 10px !important;
+  }
+  .mock-export-btn {
+    padding: 3px 8px !important;
+    font-size: 9.5px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    border-radius: 6px !important;
+    background: #edf3f8 !important;
+    color: #263d58 !important;
   }
   .mockup-body {
-    padding: 18px 16px 20px;
+    padding: 16px 14px 18px !important;
+    background: #ffffff !important;
+  }
+  .mockup-kicker {
+    font-size: 7.5px !important;
+    letter-spacing: 0.12em !important;
+    margin-bottom: 6px !important;
+    color: #7d8f85 !important;
   }
   .mockup-body h2 {
-    font-size: 20px;
+    font-size: 18px !important;
+    line-height: 1.25 !important;
+    margin: 4px 0 8px !important;
+    color: #21332a !important;
   }
   .mockup-body p {
-    font-size: 12px;
-    line-height: 1.55;
+    font-size: 11.5px !important;
+    line-height: 1.55 !important;
+    color: #55675e !important;
+    margin: 0 0 12px !important;
   }
-  .badge-export {
-    top: -8px;
-    right: 4px;
-    padding: 7px 10px;
+  .mockup-active-line {
+    padding: 7px 9px !important;
+    margin: 10px 0 12px !important;
+    background: #f1f7f3 !important;
+    border-left: 2.5px solid #3c774f !important;
+    border-radius: 0 6px 6px 0 !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 5px !important;
   }
-  .badge-sync {
-    bottom: -8px;
-    left: 4px;
-    padding: 7px 10px;
+  .mockup-cursor-tag {
+    font-size: 8px !important;
+    padding: 1px 5px !important;
+    background: #27443b !important;
+    color: #fff !important;
+    border-radius: 3px !important;
+  }
+  .mockup-typed-text {
+    font-size: 10.5px !important;
+    color: #2d4539 !important;
+    word-break: break-word !important;
+  }
+  .mockup-checklist {
+    gap: 6px !important;
+  }
+  .mockup-check-item {
+    font-size: 11px !important;
+    gap: 7px !important;
+    color: #4b5e53 !important;
+  }
+  .check-box {
+    width: 15px !important;
+    height: 15px !important;
+    font-size: 9px !important;
+  }
+
+  /* Side-by-side Feature Status Cards Below Mockup */
+  .hero-badges-wrap {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    width: 100% !important;
+    margin-top: 10px !important;
+    box-sizing: border-box !important;
+  }
+  .float-badge {
+    position: static !important;
+    transform: none !important;
+    animation: none !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 8px 10px !important;
+    border-radius: 10px !important;
+    background: #ffffff !important;
+    border: 1px solid rgba(27, 41, 38, 0.08) !important;
+    box-shadow: 0 2px 8px rgba(27, 41, 38, 0.04) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
   }
   .badge-meta b {
-    font-size: 10px;
+    font-size: 10.5px !important;
+    line-height: 1.2 !important;
+    white-space: nowrap !important;
+    color: #26382f !important;
   }
   .badge-meta small {
-    font-size: 8.5px;
+    font-size: 8.5px !important;
+    white-space: nowrap !important;
+    color: #6e7f75 !important;
   }
-  /* Metrics */
+  .badge-icon {
+    width: 24px !important;
+    height: 24px !important;
+    font-size: 11px !important;
+  }
+
+  /* Metrics 2x2 Grid Mobile */
   .metrics {
-    padding: 24px var(--container-pad);
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px 16px;
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 20px 16px !important;
+    padding: 28px 16px !important;
+    border-top: 1px solid var(--line) !important;
+    border-bottom: 1px solid var(--line) !important;
+    box-sizing: border-box !important;
   }
   .metrics > div {
-    border: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
+    border: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 3px !important;
   }
   .metrics strong {
-    font-size: 32px;
-    line-height: 1;
+    font-size: 34px !important;
+    line-height: 1 !important;
   }
   .metrics span {
-    font-size: 11px;
-    line-height: 1.4;
+    font-size: 11.5px !important;
+    line-height: 1.4 !important;
   }
   .metrics-note {
-    grid-column: 1 / -1;
-    border-top: 1px dashed var(--line);
-    padding-top: 14px;
-    margin-top: 4px;
-    text-align: left;
-    font-size: 12px;
+    grid-column: 1 / -1 !important;
+    border-top: 1px dashed var(--line) !important;
+    padding-top: 14px !important;
+    margin-top: 4px !important;
+    font-size: 12px !important;
   }
 
   /* Features */
@@ -1274,25 +1529,28 @@ footer .brand {
     --container-pad: 14px;
   }
   .brand-muted {
-    display: none;
+    display: none !important;
   }
-  .nav-login span {
-    display: none;
+  .nav-label-long {
+    display: none !important;
+  }
+  .nav-label-short {
+    display: inline !important;
   }
   .nav-login {
-    padding: 7px 10px;
-    font-size: 10px;
+    padding: 6px 10px;
+    font-size: 10.5px;
   }
   .nav-install-btn {
-    padding: 7px 10px;
+    padding: 6px 10px;
     font-size: 10px;
   }
   .hero {
-    padding: 28px var(--container-pad) 36px;
-    gap: 28px;
+    padding: 22px var(--container-pad) 32px;
+    gap: 24px;
   }
   .hero h1 {
-    font-size: 32px;
+    font-size: clamp(28px, 8vw, 36px);
   }
   .hero-lede {
     font-size: 14px;
@@ -1302,30 +1560,27 @@ footer .brand {
   }
   .hero-actions .primary-action {
     width: 100%;
-    padding: 13px 16px;
+    padding: 12px 18px;
     font-size: 13px;
   }
   .hero-visual {
-    max-width: 320px;
-  }
-  .badge-export, .badge-sync {
-    display: none !important;
+    max-width: 100%;
   }
   .mockup-titlebar {
     padding: 8px 10px;
   }
   .mockup-doc-name {
-    max-width: 110px;
+    max-width: 95px;
     font-size: 10px;
   }
   .mockup-body {
-    padding: 14px 10px 16px;
+    padding: 14px 12px 16px;
   }
   .mockup-body h2 {
     font-size: 17px;
   }
   .mockup-active-line {
-    font-size: 10.5px;
+    font-size: 10px;
     padding: 6px 8px;
   }
   .metrics {

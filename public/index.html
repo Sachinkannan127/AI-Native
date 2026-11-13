@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Ajaia Docs">
   <meta name="application-name" content="Ajaia Docs">
   <meta name="format-detection" content="telephone=no">
-  <link rel="stylesheet" href="styles.css?v=10">
+  <link rel="stylesheet" href="styles.css?v=15">
 </head>
 <body>
   <div id="landing">
@@ -26,7 +26,7 @@
           <a href="#features">Features</a>
           <a href="#workflow">How it works</a>
           <button class="nav-install-btn" id="navInstallBtn" hidden title="Install Ajaia Docs as app">Install App <span>↓</span></button>
-          <button class="nav-login" id="navOpen">Open workspace <span>↗</span></button>
+          <button class="nav-login" id="navOpen"><span class="nav-label-long">Open workspace</span><span class="nav-label-short">Open</span> <span>↗</span></button>
         </div>
       </div>
     </nav>
@@ -113,18 +113,20 @@
           </div>
         </div>
         <!-- Floating Feature Badges -->
-        <div class="float-badge badge-export">
-          <span class="badge-icon">📄</span>
-          <div class="badge-meta">
-            <b>Word Export Ready</b>
-            <small>Formatted .doc · 28 KB</small>
+        <div class="hero-badges-wrap">
+          <div class="float-badge badge-export">
+            <span class="badge-icon">📄</span>
+            <div class="badge-meta">
+              <b>Word Export Ready</b>
+              <small>Formatted .doc · 28 KB</small>
+            </div>
           </div>
-        </div>
-        <div class="float-badge badge-sync">
-          <span class="badge-icon pulse-green">✦</span>
-          <div class="badge-meta">
-            <b>Instant Sync Active</b>
-            <small>PWA · Works Offline</small>
+          <div class="float-badge badge-sync">
+            <span class="badge-icon pulse-green">✦</span>
+            <div class="badge-meta">
+              <b>Instant Sync Active</b>
+              <small>PWA · Works Offline</small>
+            </div>
           </div>
         </div>
       </div>
@@ -340,6 +342,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=10"></script>
+  <script src="app.js?v=15"></script>
 </body>
 </html>

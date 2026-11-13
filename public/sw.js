@@ -1,4 +1,4 @@
-const CACHE_NAME = "ajaia-docs-v1";
+const CACHE_NAME = "ajaia-docs-v5";
 const PRECACHE_ASSETS = [
   "/",
   "/index.html",
