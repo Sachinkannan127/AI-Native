@@ -136,3 +136,4 @@ fs.writeFileSync(path.join(iconsDir, "icon.svg"), svgIcon);
 fs.writeFileSync(path.join(__dirname, "public", "favicon.svg"), svgIcon);
 
 console.log("Successfully generated all PWA icons in public/icons/");
+
