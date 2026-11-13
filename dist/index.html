@@ -23,7 +23,6 @@
       <div class="site-nav-inner">
         <a class="brand" href="#"><span class="brand-mark">A</span><span>Ajaia<span class="brand-muted">Docs</span></span></a>
         <div class="nav-links">
-          <a href="#" class="nav-link-home" id="navHomeLink">Home</a>
           <a href="#features">Features</a>
           <a href="#workflow">How it works</a>
           <button class="nav-install-btn" id="navInstallBtn" hidden title="Install Ajaia Docs as app">Install App <span>↓</span></button>
@@ -195,14 +194,10 @@
         </div>
         <div class="sidebar-actions">
           <button id="new"><span class="action-plus">+</span><span><b>New document</b><small>Start with a blank page</small></span><kbd>N</kbd></button>
-          <label class="upload"><span class="upload-icon">↑</span><span><b>Import a file</b><small>TXT, MD or DOCX</small></span><input id="file" type="file" accept=".txt,.md,.docx"></label>
+          <label class="upload"><span class="upload-icon">↑</span><span><b>Import a file</b><small>PDF, DOCX, DOC, MD or TXT</small></span><input id="file" type="file" accept=".txt,.md,.docx,.doc,.pdf"></label>
         </div>
         <div class="sidebar-divider"></div>
-        <nav class="sidebar-nav">
-          <button class="sidebar-nav-item sidebar-home-btn" id="sidebarHomeBtn"><span>🏠</span>Home</button>
-          <button class="sidebar-nav-item active"><span>⌂</span>Workspace</button>
-          <button class="sidebar-nav-item"><span>☆</span>Starred</button>
-        </nav>
+        <nav class="sidebar-nav"><button class="sidebar-nav-item active"><span>⌂</span>Workspace</button><button class="sidebar-nav-item"><span>☆</span>Starred</button></nav>
         <h3>My documents <span id="mineCount">0</span></h3><div id="mine"></div>
         <h3>Shared with me <span id="sharedCount">0</span></h3><div id="shared"></div>
         <div class="sidebar-footer">

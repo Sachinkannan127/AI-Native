@@ -5,6 +5,7 @@ const sanitizeHtml = require("sanitize-html");
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
+const zlib = require("node:zlib");
 
 const cleanOptions = { allowedTags: ["h1", "h2", "h3", "p", "br", "b", "strong", "i", "em", "u", "ul", "ol", "li", "div"], allowedAttributes: {} };
 
@@ -41,6 +42,128 @@ function markdownToHtml(text) {
     if (match) return `<h${match[1].length}>${escapeHtml(match[2])}</h${match[1].length}>`;
     return line.trim() ? `<p>${escapeHtml(line)}</p>` : "";
   }).join("");
+}
+
+function decodePdfString(s) {
+  return s
+    .replace(/\\\\/g, "\\")
+    .replace(/\\\(/g, "(")
+    .replace(/\\\)/g, ")")
+    .replace(/\\n/g, "\n")
+    .replace(/\\r/g, "\r")
+    .replace(/\\t/g, "\t")
+    .replace(/\\([0-7]{1,3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)));
+}
+
+function extractPdfText(buf) {
+  const textChunks = [];
+  const latin = buf.toString("latin1");
+  const decompressedStreams = [];
+
+  const streamRegex = /stream\r?\n([\s\S]*?)\r?\nendstream/g;
+  let match;
+  while ((match = streamRegex.exec(latin)) !== null) {
+    const rawStream = Buffer.from(match[1], "latin1");
+    let decompressed = null;
+    try {
+      decompressed = zlib.inflateSync(rawStream).toString("latin1");
+    } catch {
+      try {
+        decompressed = zlib.inflateRawSync(rawStream).toString("latin1");
+      } catch {
+        decompressed = match[1];
+      }
+    }
+    if (decompressed) decompressedStreams.push(decompressed);
+  }
+  decompressedStreams.push(latin);
+
+  for (const stream of decompressedStreams) {
+    const tjRegex = /\(((?:[^\\)]|\\.)*)\)\s*Tj/g;
+    let m;
+    while ((m = tjRegex.exec(stream)) !== null) {
+      const decoded = decodePdfString(m[1]).trim();
+      if (decoded) textChunks.push(decoded);
+    }
+
+    const tjArrayRegex = /\[((?:[^\]\\]|\\.)*)\]\s*TJ/g;
+    while ((m = tjArrayRegex.exec(stream)) !== null) {
+      const inner = m[1];
+      const partRegex = /\(((?:[^\\)]|\\.)*)\)/g;
+      let partMatch;
+      let line = "";
+      while ((partMatch = partRegex.exec(inner)) !== null) {
+        line += decodePdfString(partMatch[1]);
+      }
+      line = line.trim();
+      if (line) textChunks.push(line);
+    }
+
+    const hexTjRegex = /<([0-9a-fA-F]+)>\s*Tj/g;
+    while ((m = hexTjRegex.exec(stream)) !== null) {
+      const hex = m[1];
+      let decoded = "";
+      if (hex.length >= 4 && hex.startsWith("00")) {
+        for (let i = 0; i < hex.length; i += 4) {
+          decoded += String.fromCharCode(parseInt(hex.substr(i, 4), 16));
+        }
+      } else {
+        for (let i = 0; i < hex.length; i += 2) {
+          decoded += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
+        }
+      }
+      decoded = decoded.trim();
+      if (decoded) textChunks.push(decoded);
+    }
+  }
+
+  if (textChunks.length === 0) {
+    const fallbackRegex = /\(((?:[^\\)]|\\.)*)\)/g;
+    let fm;
+    while ((fm = fallbackRegex.exec(latin)) !== null) {
+      const clean = decodePdfString(fm[1]).trim();
+      if (clean.length > 2 && !clean.startsWith("/") && /[a-zA-Z0-9]/.test(clean)) {
+        textChunks.push(clean);
+      }
+    }
+  }
+
+  const unique = [];
+  for (const t of textChunks) {
+    if (!unique.length || unique[unique.length - 1] !== t) {
+      unique.push(t);
+    }
+  }
+  return unique.length ? unique.map((p) => `<p>${escapeHtml(p)}</p>`).join("") : "<p>Imported PDF document</p>";
+}
+
+async function extractDocText(buf) {
+  const str = buf.toString("utf8");
+  if (str.includes("<html") || str.includes("<!DOCTYPE") || str.includes("<body")) {
+    const bodyMatch = str.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    return bodyMatch ? bodyMatch[1] : str;
+  }
+  if (buf.length > 4 && buf[0] === 0x50 && buf[1] === 0x4b && buf[2] === 0x03 && buf[3] === 0x04) {
+    const res = await mammoth.convertToHtml({ buffer: buf });
+    return res.value;
+  }
+  const chunks = [];
+  const u16Str = buf.toString("utf16le");
+  const u16Matches = u16Str.match(/[\x20-\x7E\r\n]{4,}/g) || [];
+  for (const m of u16Matches) {
+    const trimmed = m.trim();
+    if (trimmed.length >= 4 && !/^[0-9a-fA-F\-]{10,}$/.test(trimmed)) {
+      chunks.push(trimmed);
+    }
+  }
+  const asciiMatches = str.match(/[\x20-\x7E\r\n]{4,}/g) || [];
+  for (const m of asciiMatches) {
+    const trimmed = m.trim();
+    if (trimmed.length >= 4 && !chunks.includes(trimmed) && !/^[0-9a-fA-F\-]{10,}$/.test(trimmed)) {
+      chunks.push(trimmed);
+    }
+  }
+  return chunks.length ? chunks.map((c) => `<p>${escapeHtml(c)}</p>`).join("") : "<p>Imported Word document</p>";
 }
 
 function publicDoc(doc, user) {
@@ -202,11 +325,24 @@ function createApp(options = {}) {
   }), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: "A file is required" });
     const ext = path.extname(req.file.originalname).toLowerCase();
-    if (![".txt", ".md", ".docx"].includes(ext)) return res.status(400).json({ error: "Supported files are .txt, .md, and .docx" });
+    const allowedExts = [".txt", ".md", ".docx", ".doc", ".pdf"];
+    if (!allowedExts.includes(ext)) return res.status(400).json({ error: "Supported files are .txt, .md, .docx, .doc, and .pdf" });
     try {
       let content;
-      if (ext === ".docx") content = (await mammoth.convertToHtml({ buffer: req.file.buffer })).value;
-      else content = ext === ".md" ? markdownToHtml(req.file.buffer.toString("utf8")) : req.file.buffer.toString("utf8").split(/\r?\n\s*\r?\n/).filter(Boolean).map((p) => `<p>${escapeHtml(p.replace(/\r?\n/g, " "))}</p>`).join("");
+      if (ext === ".docx") {
+        content = (await mammoth.convertToHtml({ buffer: req.file.buffer })).value;
+      } else if (ext === ".doc") {
+        content = await extractDocText(req.file.buffer);
+      } else if (ext === ".pdf") {
+        content = extractPdfText(req.file.buffer);
+      } else if (ext === ".md") {
+        content = markdownToHtml(req.file.buffer.toString("utf8"));
+      } else {
+        content = req.file.buffer.toString("utf8").split(/\r?\n\s*\r?\n/).filter(Boolean).map((p) => `<p>${escapeHtml(p.replace(/\r?\n/g, " "))}</p>`).join("");
+      }
+      if (!content || !content.trim()) {
+        content = "<p>Imported document</p>";
+      }
       const base = path.basename(req.file.originalname, ext).trim() || "Imported document";
       const doc = { id: crypto.randomUUID(), title: base.slice(0, 120), content: sanitize(content), owner: req.user, shares: [], updatedAt: new Date().toISOString() };
       store.documents.push(doc);

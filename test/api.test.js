@@ -153,3 +153,73 @@ test("dynamic user registration, validation, and multi-user collaboration", asyn
   if (server2.closeAllConnections) server2.closeAllConnections();
   await new Promise((resolve) => server2.close(resolve));
 });
+
+test("file uploads: PDF, DOC, DOCX, MD, and TXT support and sanitization", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ajaia-upload-"));
+  const dataFile = path.join(dir, "data.json");
+  const server = createApp({ dataFile }).listen(0);
+  await new Promise((resolve) => server.once("listening", resolve));
+  const base = `http://127.0.0.1:${server.address().port}/api`;
+  const zlib = require("node:zlib");
+
+  const user = "uploader@example.com";
+  await fetch(`${base}/users`, {
+    method: "POST",
+    headers: { "content-type": "application/json", connection: "close" },
+    body: JSON.stringify({ name: "Uploader", email: user })
+  });
+
+  const uploadFile = async (filename, buffer, mimeType) => {
+    const fd = new FormData();
+    const blob = new Blob([buffer], { type: mimeType });
+    fd.append("file", blob, filename);
+    return fetch(`${base}/upload`, {
+      method: "POST",
+      headers: { "x-user": user, connection: "close" },
+      body: fd
+    });
+  };
+
+  // 1. Text file upload
+  let res = await uploadFile("notes.txt", Buffer.from("Line 1\n\nLine 2"), "text/plain");
+  assert.equal(res.status, 201);
+  let doc = await res.json();
+  assert.equal(doc.title, "notes");
+  assert.ok(doc.content.includes("Line 1") && doc.content.includes("Line 2"));
+
+  // 2. Markdown file upload
+  res = await uploadFile("guide.md", Buffer.from("# Welcome\n\nThis is a guide"), "text/markdown");
+  assert.equal(res.status, 201);
+  doc = await res.json();
+  assert.equal(doc.title, "guide");
+  assert.ok(doc.content.includes("<h1>Welcome</h1>"));
+
+  // 3. HTML-based .doc file upload
+  res = await uploadFile("draft.doc", Buffer.from("<html><body><h2>Doc Header</h2><p>Doc paragraph</p></body></html>"), "application/msword");
+  assert.equal(res.status, 201);
+  doc = await res.json();
+  assert.equal(doc.title, "draft");
+  assert.ok(doc.content.includes("<h2>Doc Header</h2>"));
+
+  // 4. PDF file upload with compressed stream
+  const streamText = "BT /F1 12 Tf (PDF Hello World) Tj ET";
+  const deflated = zlib.deflateSync(Buffer.from(streamText));
+  const pdfBytes = Buffer.from(
+    `%PDF-1.4\n1 0 obj\n<< /Length ${deflated.length} /Filter /FlateDecode >>\nstream\r\n` +
+    deflated.toString("latin1") +
+    "\r\nendstream\nendobj\n%%EOF",
+    "latin1"
+  );
+  res = await uploadFile("document.pdf", pdfBytes, "application/pdf");
+  assert.equal(res.status, 201);
+  doc = await res.json();
+  assert.equal(doc.title, "document");
+  assert.ok(doc.content.includes("PDF Hello World"));
+
+  // 5. Unsupported file rejection
+  res = await uploadFile("malicious.exe", Buffer.from("bad binary"), "application/octet-stream");
+  assert.equal(res.status, 400);
+
+  if (server.closeAllConnections) server.closeAllConnections();
+  await new Promise((resolve) => server.close(resolve));
+});

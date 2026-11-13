@@ -52,9 +52,13 @@ function generateUUID() {
 }
 
 async function api(url, options = {}) {
-  options.headers = { ...(options.headers || {}), "x-user": user };
+  const fetchOpts = {
+    method: options.method,
+    headers: { ...(options.headers || {}), "x-user": user },
+    body: options.body
+  };
   try {
-    const r = await fetch(`/api${url}`, options);
+    const r = await fetch(`/api${url}`, fetchOpts);
     // If route doesn't exist on host (404/405/500+), fall back to local storage
     if (r.status === 404 || r.status === 405 || r.status >= 500) {
       return handleLocalApi(url, options);
@@ -154,6 +158,62 @@ function handleLocalApi(url, options = {}) {
     doc.updatedAt = new Date().toISOString();
     saveLocalDoc(doc);
     return doc;
+  }
+
+  if (url === "/upload" && method === "POST") {
+    const file = options.fileObj;
+    if (!file) throw new Error("A file is required");
+    const name = file.name || "Imported document";
+    const extMatch = name.match(/\.[^.]+$/);
+    const ext = extMatch ? extMatch[0].toLowerCase() : "";
+    const allowed = [".txt", ".md", ".docx", ".doc", ".pdf"];
+    if (!allowed.includes(ext)) throw new Error("Supported files are .txt, .md, .docx, .doc, and .pdf");
+
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        let rawText = "";
+        const result = reader.result;
+        if (typeof result === "string") {
+          rawText = result;
+        } else if (result instanceof ArrayBuffer) {
+          const bytes = new Uint8Array(result);
+          const chars = [];
+          for (let i = 0; i < bytes.length; i++) {
+            if (bytes[i] >= 32 && bytes[i] <= 126) chars.push(String.fromCharCode(bytes[i]));
+            else if (bytes[i] === 10 || bytes[i] === 13) chars.push("\n");
+          }
+          rawText = chars.join("");
+        }
+        if (ext === ".doc" && (rawText.includes("<body") || rawText.includes("<html"))) {
+          const m = rawText.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+          if (m) rawText = m[1];
+        }
+        const title = name.replace(/\.[^.]+$/, "").trim() || "Imported document";
+        let content = "";
+        if (rawText.includes("<p>") || rawText.includes("<h1>") || rawText.includes("<h2>")) {
+          content = rawText;
+        } else {
+          content = rawText.split(/\r?\n\s*\r?\n/).filter(Boolean).map((p) => `<p>${escapeHtml(p.trim())}</p>`).join("");
+        }
+        if (!content.trim()) content = "<p>Imported document</p>";
+        const doc = {
+          id: generateUUID(),
+          title: title.slice(0, 120),
+          content,
+          owner: user,
+          shares: [],
+          updatedAt: new Date().toISOString()
+        };
+        saveLocalDoc(doc);
+        resolve({ ...doc, role: "owner" });
+      };
+      if (ext === ".txt" || ext === ".md" || ext === ".doc") {
+        reader.readAsText(file);
+      } else {
+        reader.readAsArrayBuffer(file);
+      }
+    });
   }
 
   return {};
@@ -809,13 +869,14 @@ async function init() {
   };
 
   $("file").onchange = async () => {
-    if (!$("file").files[0]) return;
+    const file = $("file").files[0];
+    if (!file) return;
     const fd = new FormData();
-    fd.append("file", $("file").files[0]);
+    fd.append("file", file);
     try {
-      const d = await api("/upload", { method: "POST", body: fd });
+      const d = await api("/upload", { method: "POST", body: fd, fileObj: file });
       await loadDocs();
-      openDoc(d.id);
+      if (d && d.id) openDoc(d.id);
       $("appShell").classList.remove("sidebar-open");
     } catch (e) {
       message(e.message);
