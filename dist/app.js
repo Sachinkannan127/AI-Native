@@ -88,6 +88,177 @@ async function api(url, options = {}) {
   return handleLocalApi(url, options);
 }
 
+async function parseFileClientSide(file, ext) {
+  if (ext === ".txt" || ext === ".md") {
+    const text = await file.text();
+    return text.split(/\r?\n\s*\r?\n/).filter(Boolean).map((p) => `<p>${escapeHtml(p.trim())}</p>`).join("");
+  }
+
+  if (ext === ".doc") {
+    const text = await file.text();
+    if (text.includes("<body") || text.includes("<html")) {
+      const m = text.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+      return m ? m[1] : text;
+    }
+    const clean = text.replace(/[^\x20-\x7E\r\n]/g, " ").replace(/\s{2,}/g, " ");
+    return clean.split(/\r?\n\s*\r?\n/).filter(Boolean).map((p) => `<p>${escapeHtml(p.trim())}</p>`).join("");
+  }
+
+  const arrayBuffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+
+  if (ext === ".docx") {
+    try {
+      let pos = 0;
+      while (pos < bytes.length - 30) {
+        if (bytes[pos] === 0x50 && bytes[pos+1] === 0x4b && bytes[pos+2] === 0x03 && bytes[pos+3] === 0x04) {
+          const compMethod = bytes[pos+8] | (bytes[pos+9] << 8);
+          const compSize = bytes[pos+18] | (bytes[pos+19] << 8) | (bytes[pos+20] << 16) | (bytes[pos+21] << 24);
+          const nameLen = bytes[pos+26] | (bytes[pos+27] << 8);
+          const extraLen = bytes[pos+28] | (bytes[pos+29] << 8);
+          const nameBytes = bytes.slice(pos + 30, pos + 30 + nameLen);
+          const fileName = new TextDecoder().decode(nameBytes);
+          const dataOffset = pos + 30 + nameLen + extraLen;
+
+          if (fileName === "word/document.xml") {
+            const compressedData = bytes.slice(dataOffset, dataOffset + compSize);
+            let xml = "";
+            if (compMethod === 8 && typeof DecompressionStream !== "undefined") {
+              const ds = new DecompressionStream("deflate-raw");
+              const writer = ds.writable.getWriter();
+              writer.write(compressedData);
+              writer.close();
+              const chunks = [];
+              const reader = ds.readable.getReader();
+              while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                chunks.push(value);
+              }
+              const total = chunks.reduce((a, b) => a + b.length, 0);
+              const out = new Uint8Array(total);
+              let offset = 0;
+              for (const c of chunks) { out.set(c, offset); offset += c.length; }
+              xml = new TextDecoder().decode(out);
+            } else if (compMethod === 0) {
+              xml = new TextDecoder().decode(compressedData);
+            }
+            if (xml) {
+              const paragraphs = [];
+              const pRegex = /<w:p\b[^>]*>([\s\S]*?)<\/w:p>/g;
+              let pMatch;
+              while ((pMatch = pRegex.exec(xml)) !== null) {
+                const tRegex = /<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g;
+                let tMatch;
+                let pText = "";
+                while ((tMatch = tRegex.exec(pMatch[1])) !== null) {
+                  pText += tMatch[1];
+                }
+                if (pText.trim()) paragraphs.push(escapeHtml(pText.trim()));
+              }
+              if (paragraphs.length) return paragraphs.map((p) => `<p>${p}</p>`).join("");
+            }
+          }
+          pos = dataOffset + compSize;
+        } else {
+          pos++;
+        }
+      }
+    } catch {}
+  }
+
+  if (ext === ".pdf") {
+    try {
+      const streamSig = [115, 116, 114, 101, 97, 109];
+      const endSig = [101, 110, 100, 115, 116, 114, 101, 97, 109];
+      const textChunks = [];
+      const decompressedStreams = [];
+
+      let i = 0;
+      while (i < bytes.length - 15) {
+        let match = true;
+        for (let j = 0; j < 6; j++) {
+          if (bytes[i + j] !== streamSig[j]) { match = false; break; }
+        }
+        if (match) {
+          let start = i + 6;
+          if (bytes[start] === 13 && bytes[start+1] === 10) start += 2;
+          else if (bytes[start] === 10) start += 1;
+
+          let end = start;
+          while (end < bytes.length - 9) {
+            let endMatch = true;
+            for (let k = 0; k < 9; k++) {
+              if (bytes[end + k] !== endSig[k]) { endMatch = false; break; }
+            }
+            if (endMatch) break;
+            end++;
+          }
+          let realEnd = end;
+          if (bytes[realEnd - 1] === 10) realEnd--;
+          if (bytes[realEnd - 1] === 13) realEnd--;
+
+          const rawStreamBytes = bytes.slice(start, realEnd);
+          if (typeof DecompressionStream !== "undefined") {
+            try {
+              const ds = new DecompressionStream("deflate");
+              const writer = ds.writable.getWriter();
+              writer.write(rawStreamBytes);
+              writer.close();
+              const reader = ds.readable.getReader();
+              const chunks = [];
+              while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                chunks.push(value);
+              }
+              const total = chunks.reduce((a, b) => a + b.length, 0);
+              const out = new Uint8Array(total);
+              let off = 0;
+              for (const c of chunks) { out.set(c, off); off += c.length; }
+              decompressedStreams.push(new TextDecoder("latin1").decode(out));
+            } catch {}
+          }
+          i = end + 9;
+        } else {
+          i++;
+        }
+      }
+
+      decompressedStreams.push(new TextDecoder("latin1").decode(bytes));
+
+      const decodePdfStr = (s) => s.replace(/\\\\/g, "\\").replace(/\\\(/g, "(").replace(/\\\)/g, ")").replace(/\\n/g, "\n").replace(/\\r/g, "\r").replace(/\\t/g, "\t");
+
+      for (const stream of decompressedStreams) {
+        const tjRegex = /\(((?:[^\\)]|\\.)*)\)\s*Tj/g;
+        let m;
+        while ((m = tjRegex.exec(stream)) !== null) {
+          const d = decodePdfStr(m[1]).trim();
+          if (d) textChunks.push(d);
+        }
+        const tjArrayRegex = /\[((?:[^\]\\]|\\.)*)\]\s*TJ/g;
+        while ((m = tjArrayRegex.exec(stream)) !== null) {
+          const inner = m[1];
+          const pRegex = /\(((?:[^\\)]|\\.)*)\)/g;
+          let pm;
+          let line = "";
+          while ((pm = pRegex.exec(inner)) !== null) {
+            line += decodePdfStr(pm[1]);
+          }
+          line = line.trim();
+          if (line) textChunks.push(line);
+        }
+      }
+
+      if (textChunks.length) {
+        return textChunks.map((t) => `<p>${escapeHtml(t)}</p>`).join("");
+      }
+    } catch {}
+  }
+
+  return "<p>Imported document</p>";
+}
+
 function handleLocalApi(url, options = {}) {
   const method = (options.method || "GET").toUpperCase();
 
@@ -169,50 +340,18 @@ function handleLocalApi(url, options = {}) {
     const allowed = [".txt", ".md", ".docx", ".doc", ".pdf"];
     if (!allowed.includes(ext)) throw new Error("Supported files are .txt, .md, .docx, .doc, and .pdf");
 
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        let rawText = "";
-        const result = reader.result;
-        if (typeof result === "string") {
-          rawText = result;
-        } else if (result instanceof ArrayBuffer) {
-          const bytes = new Uint8Array(result);
-          const chars = [];
-          for (let i = 0; i < bytes.length; i++) {
-            if (bytes[i] >= 32 && bytes[i] <= 126) chars.push(String.fromCharCode(bytes[i]));
-            else if (bytes[i] === 10 || bytes[i] === 13) chars.push("\n");
-          }
-          rawText = chars.join("");
-        }
-        if (ext === ".doc" && (rawText.includes("<body") || rawText.includes("<html"))) {
-          const m = rawText.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-          if (m) rawText = m[1];
-        }
-        const title = name.replace(/\.[^.]+$/, "").trim() || "Imported document";
-        let content = "";
-        if (rawText.includes("<p>") || rawText.includes("<h1>") || rawText.includes("<h2>")) {
-          content = rawText;
-        } else {
-          content = rawText.split(/\r?\n\s*\r?\n/).filter(Boolean).map((p) => `<p>${escapeHtml(p.trim())}</p>`).join("");
-        }
-        if (!content.trim()) content = "<p>Imported document</p>";
-        const doc = {
-          id: generateUUID(),
-          title: title.slice(0, 120),
-          content,
-          owner: user,
-          shares: [],
-          updatedAt: new Date().toISOString()
-        };
-        saveLocalDoc(doc);
-        resolve({ ...doc, role: "owner" });
+    return parseFileClientSide(file, ext).then((content) => {
+      const title = name.replace(/\.[^.]+$/, "").trim() || "Imported document";
+      const doc = {
+        id: generateUUID(),
+        title: title.slice(0, 120),
+        content: content || "<p>Imported document</p>",
+        owner: user,
+        shares: [],
+        updatedAt: new Date().toISOString()
       };
-      if (ext === ".txt" || ext === ".md" || ext === ".doc") {
-        reader.readAsText(file);
-      } else {
-        reader.readAsArrayBuffer(file);
-      }
+      saveLocalDoc(doc);
+      return { ...doc, role: "owner" };
     });
   }
 
@@ -419,6 +558,11 @@ function downloadDoc() {
   link.remove();
   setTimeout(() => URL.revokeObjectURL(link.href), 0);
   message("Word document downloaded");
+}
+
+function downloadPdf() {
+  if (!current) return message("Open a document before downloading");
+  window.print();
 }
 
 function renderDocs(docs) {
@@ -851,6 +995,7 @@ async function init() {
   };
 
   $("downloadBtn").onclick = downloadDoc;
+  if ($("downloadPdfBtn")) $("downloadPdfBtn").onclick = downloadPdf;
 
   $("share").onclick = async () => {
     const targetEmail = $("shareUser").value;

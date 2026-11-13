@@ -196,7 +196,7 @@
         </div>
         <div class="sidebar-actions">
           <button id="new"><span class="action-plus">+</span><span><b>New document</b><small>Start with a blank page</small></span><kbd>N</kbd></button>
-          <label class="upload"><span class="upload-icon">↑</span><span><b>Import a file</b><small>PDF, DOCX, DOC, MD or TXT</small></span><input id="file" type="file" accept=".txt,.md,.docx,.doc,.pdf"></label>
+          <label class="upload"><span class="upload-icon">↑</span><span><b>Import a file</b><small>PDF, DOCX, DOC, MD or TXT</small></span><input id="file" type="file" accept=".txt,.md,.docx,.doc,.pdf,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"></label>
         </div>
         <div class="sidebar-divider"></div>
         <nav class="sidebar-nav"><button class="sidebar-nav-item active"><span>⌂</span>Workspace</button><button class="sidebar-nav-item"><span>☆</span>Starred</button></nav>
@@ -247,6 +247,7 @@
             <div class="toolbar-fill"></div>
             <span id="status"><i></i> Saved</span>
             <button id="downloadBtn" class="download-button" title="Download Word document">↓ Word</button>
+            <button id="downloadPdfBtn" class="download-button" title="Download or print as PDF">↓ PDF</button>
             <button id="shareBtn" class="share-button">Share document <span>↗</span></button>
           </div>
           <div class="document-shell">

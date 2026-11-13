@@ -1880,3 +1880,37 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
     justify-content: center;
   }
 }
+
+/* Print & PDF Export Styling */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .document-shell, .document-shell * {
+    visibility: visible;
+  }
+  .document-shell {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .document-shell #title {
+    border-bottom: 2px solid #26382f !important;
+    width: 100% !important;
+    margin: 0 0 20px 0 !important;
+    padding: 0 0 10px 0 !important;
+  }
+  .document-shell #content {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .document-meta, .document-endmark, .toolbar, .app-header, aside {
+    display: none !important;
+  }
+}
