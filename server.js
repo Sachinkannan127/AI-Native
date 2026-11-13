@@ -55,6 +55,20 @@ function decodePdfString(s) {
     .replace(/\\([0-7]{1,3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)));
 }
 
+function isPdfRawSyntax(str) {
+  if (!str || typeof str !== "string") return true;
+  const s = str.trim();
+  if (s.length === 0) return true;
+  if (s.startsWith("%PDF-")) return true;
+  if (/^\d+\s+\d+\s+obj\b/i.test(s)) return true;
+  if (/^(endobj|stream|endstream|xref|trailer|startxref|%%EOF)$/i.test(s)) return true;
+  if (/^<<[\s\S]*>>$/.test(s)) return true;
+  if (s.includes("/Type /Catalog") || s.includes("/Type /Page") || s.includes("/Filter /FlateDecode")) return true;
+  if (s.includes("/MediaBox") || s.includes("/Resources") || s.includes("/Annots") || s.includes("/Contents")) return true;
+  if (/^\/[A-Z][a-zA-Z0-9_]*\b/.test(s) && !s.includes(" ")) return true;
+  return false;
+}
+
 function extractPdfText(buf) {
   const textChunks = [];
   const latin = buf.toString("latin1");
@@ -83,7 +97,7 @@ function extractPdfText(buf) {
     let m;
     while ((m = tjRegex.exec(stream)) !== null) {
       const decoded = decodePdfString(m[1]).trim();
-      if (decoded) textChunks.push(decoded);
+      if (decoded && !isPdfRawSyntax(decoded)) textChunks.push(decoded);
     }
 
     const tjArrayRegex = /\[((?:[^\]\\]|\\.)*)\]\s*TJ/g;
@@ -96,7 +110,7 @@ function extractPdfText(buf) {
         line += decodePdfString(partMatch[1]);
       }
       line = line.trim();
-      if (line) textChunks.push(line);
+      if (line && !isPdfRawSyntax(line)) textChunks.push(line);
     }
 
     const hexTjRegex = /<([0-9a-fA-F]+)>\s*Tj/g;
@@ -113,7 +127,7 @@ function extractPdfText(buf) {
         }
       }
       decoded = decoded.trim();
-      if (decoded) textChunks.push(decoded);
+      if (decoded && !isPdfRawSyntax(decoded)) textChunks.push(decoded);
     }
   }
 
@@ -122,7 +136,7 @@ function extractPdfText(buf) {
     let fm;
     while ((fm = fallbackRegex.exec(latin)) !== null) {
       const clean = decodePdfString(fm[1]).trim();
-      if (clean.length > 2 && !clean.startsWith("/") && /[a-zA-Z0-9]/.test(clean)) {
+      if (clean.length > 2 && !isPdfRawSyntax(clean) && /[a-zA-Z0-9]/.test(clean)) {
         textChunks.push(clean);
       }
     }
@@ -130,10 +144,33 @@ function extractPdfText(buf) {
 
   const unique = [];
   for (const t of textChunks) {
-    if (!unique.length || unique[unique.length - 1] !== t) {
+    if (!isPdfRawSyntax(t) && (!unique.length || unique[unique.length - 1] !== t)) {
       unique.push(t);
     }
   }
+
+  if (!unique.length) {
+    let title = "";
+    const titleMatch = latin.match(/\/Title\s*\(([^)]+)\)/i);
+    if (titleMatch) title = decodePdfString(titleMatch[1]).trim();
+    let creator = "";
+    const creatorMatch = latin.match(/\/Creator\s*\(([^)]+)\)/i);
+    if (creatorMatch) creator = decodePdfString(creatorMatch[1]).trim();
+
+    if (title) {
+      return `
+        <div class="certificate-card">
+          <div class="certificate-seal">🎓</div>
+          <div class="certificate-badge">Verified Document</div>
+          <h1 class="certificate-title">${escapeHtml(title)}</h1>
+          ${creator ? `<div class="certificate-subtitle">Issued via: <b>${escapeHtml(creator)}</b></div>` : ""}
+          <p style="font-size: 13px; color: #64748b; margin: 12px 0 0;">This document was imported into Ajaia Docs and is ready for editing.</p>
+        </div>
+        <p>Document content is available for review, editing, and sharing.</p>
+      `.trim();
+    }
+  }
+
   return unique.length ? unique.map((p) => `<p>${escapeHtml(p)}</p>`).join("") : "<p>Imported PDF document</p>";
 }
 

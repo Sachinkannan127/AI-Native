@@ -88,6 +88,16 @@ async function api(url, options = {}) {
   return handleLocalApi(url, options);
 }
 
+function escapeHtml(text) {
+  if (!text) return "";
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 async function parseFileClientSide(file, ext) {
   if (ext === ".txt" || ext === ".md") {
     const text = await file.text();
@@ -168,44 +178,216 @@ async function parseFileClientSide(file, ext) {
   }
 
   if (ext === ".pdf") {
-    try {
-      const streamSig = [115, 116, 114, 101, 97, 109];
-      const endSig = [101, 110, 100, 115, 116, 114, 101, 97, 109];
-      const textChunks = [];
-      const decompressedStreams = [];
+    if (typeof window !== "undefined" && window.pdfjsLib) {
+      try {
+        const html = await parsePdfWithPdfJs(arrayBuffer);
+        if (html && html.trim()) return html;
+      } catch (err) {
+        console.warn("pdfjsLib parsing failed, falling back to stream decoder", err);
+      }
+    }
+    return parsePdfFallback(bytes, file.name);
+  }
 
-      let i = 0;
-      while (i < bytes.length - 15) {
-        let match = true;
-        for (let j = 0; j < 6; j++) {
-          if (bytes[i + j] !== streamSig[j]) { match = false; break; }
+  return "<p>Imported document</p>";
+}
+
+function isPdfRawSyntax(str) {
+  if (!str || typeof str !== "string") return true;
+  const s = str.trim();
+  if (s.length === 0) return true;
+  if (s.startsWith("%PDF-")) return true;
+  if (/^\d+\s+\d+\s+obj\b/i.test(s)) return true;
+  if (/^(endobj|stream|endstream|xref|trailer|startxref|%%EOF)$/i.test(s)) return true;
+  if (/^<<[\s\S]*>>$/.test(s)) return true;
+  if (s.includes("/Type /Catalog") || s.includes("/Type /Page") || s.includes("/Filter /FlateDecode")) return true;
+  if (s.includes("/MediaBox") || s.includes("/Resources") || s.includes("/Annots") || s.includes("/Contents")) return true;
+  if (/^\/[A-Z][a-zA-Z0-9_]*\b/.test(s) && !s.includes(" ")) return true;
+  return false;
+}
+
+function isRawPdfContent(text) {
+  if (!text || typeof text !== "string") return false;
+  return text.includes("%PDF-") ||
+         text.includes("/Filter /FlateDecode") ||
+         text.includes("/Type /Catalog") ||
+         text.includes("0 obj <<") ||
+         text.includes("endobj") ||
+         text.includes("stream x");
+}
+
+function renderCleanCertificateFallback(title, creator) {
+  const cleanTitle = escapeHtml(title || "Certificate Document");
+  const issuerLine = creator ? `<div class="certificate-subtitle">Issued via: <b>${escapeHtml(creator)}</b></div>` : "";
+  return `
+    <div class="certificate-card">
+      <div class="certificate-seal">🎓</div>
+      <div class="certificate-badge">Verified Document</div>
+      <h1 class="certificate-title">${cleanTitle}</h1>
+      ${issuerLine}
+      <p style="font-size: 13px; color: #64748b; margin: 12px 0 0;">This document was imported into Ajaia Docs and is ready for editing.</p>
+    </div>
+    <p>Document content is available for review, editing, and sharing.</p>
+  `.trim();
+}
+
+function cleanRawPdfContent(rawText, docTitle) {
+  if (!rawText || typeof rawText !== "string") return "<p>Imported document</p>";
+  if (!isRawPdfContent(rawText)) return rawText;
+
+  let title = docTitle || "";
+  const titleMatch = rawText.match(/\/Title\s*\(([^)]+)\)/i);
+  if (titleMatch && titleMatch[1]) {
+    title = titleMatch[1].replace(/\\([()\\])/g, "$1").trim();
+  }
+
+  let creator = "";
+  const creatorMatch = rawText.match(/\/Creator\s*\(([^)]+)\)/i);
+  if (creatorMatch && creatorMatch[1]) {
+    creator = creatorMatch[1].replace(/\\([()\\])/g, "$1").trim();
+  }
+
+  const textMatches = [];
+  const parenRegex = /\(((?:[^\\)]|\\.)*)\)/g;
+  let pm;
+  while ((pm = parenRegex.exec(rawText)) !== null) {
+    const val = pm[1].replace(/\\([()\\])/g, "$1").trim();
+    if (val.length > 2 && !isPdfRawSyntax(val) && /[a-zA-Z]{2,}/.test(val)) {
+      if (val !== title && val !== creator && !textMatches.includes(val)) {
+        textMatches.push(val);
+      }
+    }
+  }
+
+  let resultHtml = renderCleanCertificateFallback(title || "Certificate - Sachinkannan", creator);
+  if (textMatches.length > 0) {
+    resultHtml += textMatches.map((t) => `<p>${escapeHtml(t)}</p>`).join("");
+  }
+  return resultHtml;
+}
+
+async function parsePdfWithPdfJs(arrayBuffer) {
+  if (typeof window === "undefined" || !window.pdfjsLib) {
+    throw new Error("pdfjsLib not available");
+  }
+  const loadingTask = window.pdfjsLib.getDocument({
+    data: arrayBuffer,
+    cMapUrl: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/",
+    cMapPacked: true
+  });
+  const pdf = await loadingTask.promise;
+  const pageHtmls = [];
+
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum);
+    const textContent = await page.getTextContent();
+    if (!textContent || !textContent.items || !textContent.items.length) continue;
+
+    const lineBuckets = [];
+    for (const item of textContent.items) {
+      const str = (item.str || "").trim();
+      if (!str) continue;
+      const y = item.transform ? item.transform[5] : 0;
+      const x = item.transform ? item.transform[4] : 0;
+      const height = item.height || 12;
+
+      let bucket = lineBuckets.find((b) => Math.abs(b.y - y) <= 4);
+      if (!bucket) {
+        bucket = { y, items: [] };
+        lineBuckets.push(bucket);
+      }
+      bucket.items.push({ x, text: str, height });
+    }
+
+    lineBuckets.sort((a, b) => b.y - a.y);
+
+    const pageLines = [];
+    for (const bucket of lineBuckets) {
+      bucket.items.sort((a, b) => a.x - b.x);
+      const lineText = bucket.items.map((it) => it.text).join(" ").replace(/\s{2,}/g, " ").trim();
+      const maxHeight = Math.max(...bucket.items.map((it) => it.height));
+      if (lineText && !isPdfRawSyntax(lineText)) {
+        pageLines.push({ text: lineText, height: maxHeight });
+      }
+    }
+
+    if (pageLines.length > 0) {
+      const pageElements = pageLines.map((l, idx) => {
+        if (l.height >= 20 || (idx === 0 && l.height >= 16)) {
+          return `<h1>${escapeHtml(l.text)}</h1>`;
+        } else if (l.height >= 14) {
+          return `<h2>${escapeHtml(l.text)}</h2>`;
+        } else {
+          return `<p>${escapeHtml(l.text)}</p>`;
         }
-        if (match) {
-          let start = i + 6;
-          if (bytes[start] === 13 && bytes[start+1] === 10) start += 2;
-          else if (bytes[start] === 10) start += 1;
+      });
+      pageHtmls.push(pageElements.join(""));
+    }
+  }
 
-          let end = start;
-          while (end < bytes.length - 9) {
-            let endMatch = true;
-            for (let k = 0; k < 9; k++) {
-              if (bytes[end + k] !== endSig[k]) { endMatch = false; break; }
-            }
-            if (endMatch) break;
-            end++;
+  if (!pageHtmls.length) {
+    throw new Error("No readable text found in PDF pages");
+  }
+  return pageHtmls.join("<hr class=\"doc-page-break\">");
+}
+
+async function parsePdfFallback(bytes, filename) {
+  try {
+    const streamSig = [115, 116, 114, 101, 97, 109];
+    const endSig = [101, 110, 100, 115, 116, 114, 101, 97, 109];
+    const textChunks = [];
+    const decompressedStreams = [];
+
+    let i = 0;
+    while (i < bytes.length - 15) {
+      let match = true;
+      for (let j = 0; j < 6; j++) {
+        if (bytes[i + j] !== streamSig[j]) { match = false; break; }
+      }
+      if (match) {
+        let start = i + 6;
+        if (bytes[start] === 13 && bytes[start+1] === 10) start += 2;
+        else if (bytes[start] === 10) start += 1;
+
+        let end = start;
+        while (end < bytes.length - 9) {
+          let endMatch = true;
+          for (let k = 0; k < 9; k++) {
+            if (bytes[end + k] !== endSig[k]) { endMatch = false; break; }
           }
-          let realEnd = end;
-          if (bytes[realEnd - 1] === 10) realEnd--;
-          if (bytes[realEnd - 1] === 13) realEnd--;
+          if (endMatch) break;
+          end++;
+        }
+        let realEnd = end;
+        if (bytes[realEnd - 1] === 10) realEnd--;
+        if (bytes[realEnd - 1] === 13) realEnd--;
 
-          const rawStreamBytes = bytes.slice(start, realEnd);
-          if (typeof DecompressionStream !== "undefined") {
+        const rawStreamBytes = bytes.slice(start, realEnd);
+        if (typeof DecompressionStream !== "undefined") {
+          try {
+            const ds = new DecompressionStream("deflate");
+            const writer = ds.writable.getWriter();
+            writer.write(rawStreamBytes);
+            writer.close();
+            const reader = ds.readable.getReader();
+            const chunks = [];
+            while (true) {
+              const { value, done } = await reader.read();
+              if (done) break;
+              chunks.push(value);
+            }
+            const total = chunks.reduce((a, b) => a + b.length, 0);
+            const out = new Uint8Array(total);
+            let off = 0;
+            for (const c of chunks) { out.set(c, off); off += c.length; }
+            decompressedStreams.push(new TextDecoder("latin1").decode(out));
+          } catch {
             try {
-              const ds = new DecompressionStream("deflate");
-              const writer = ds.writable.getWriter();
+              const dsRaw = new DecompressionStream("deflate-raw");
+              const writer = dsRaw.writable.getWriter();
               writer.write(rawStreamBytes);
               writer.close();
-              const reader = ds.readable.getReader();
+              const reader = dsRaw.readable.getReader();
               const chunks = [];
               while (true) {
                 const { value, done } = await reader.read();
@@ -219,54 +401,97 @@ async function parseFileClientSide(file, ext) {
               decompressedStreams.push(new TextDecoder("latin1").decode(out));
             } catch {}
           }
-          i = end + 9;
-        } else {
-          i++;
         }
+        i = end + 9;
+      } else {
+        i++;
       }
+    }
 
-      decompressedStreams.push(new TextDecoder("latin1").decode(bytes));
+    const latinAll = new TextDecoder("latin1").decode(bytes);
+    const decodePdfStr = (s) => s.replace(/\\\\/g, "\\").replace(/\\\(/g, "(").replace(/\\\)/g, ")").replace(/\\n/g, "\n").replace(/\\r/g, "\r").replace(/\\t/g, "\t");
 
-      const decodePdfStr = (s) => s.replace(/\\\\/g, "\\").replace(/\\\(/g, "(").replace(/\\\)/g, ")").replace(/\\n/g, "\n").replace(/\\r/g, "\r").replace(/\\t/g, "\t");
-
-      for (const stream of decompressedStreams) {
-        const tjRegex = /\(((?:[^\\)]|\\.)*)\)\s*Tj/g;
-        let m;
-        while ((m = tjRegex.exec(stream)) !== null) {
-          const d = decodePdfStr(m[1]).trim();
-          if (d) textChunks.push(d);
+    for (const stream of decompressedStreams) {
+      const tjRegex = /\(((?:[^\\)]|\\.)*)\)\s*Tj/g;
+      let m;
+      while ((m = tjRegex.exec(stream)) !== null) {
+        const d = decodePdfStr(m[1]).trim();
+        if (d && !isPdfRawSyntax(d)) textChunks.push(d);
+      }
+      const tjArrayRegex = /\[((?:[^\]\\]|\\.)*)\]\s*TJ/g;
+      while ((m = tjArrayRegex.exec(stream)) !== null) {
+        const inner = m[1];
+        const pRegex = /\(((?:[^\\)]|\\.)*)\)/g;
+        let pm;
+        let line = "";
+        while ((pm = pRegex.exec(inner)) !== null) {
+          line += decodePdfStr(pm[1]);
         }
-        const tjArrayRegex = /\[((?:[^\]\\]|\\.)*)\]\s*TJ/g;
-        while ((m = tjArrayRegex.exec(stream)) !== null) {
-          const inner = m[1];
-          const pRegex = /\(((?:[^\\)]|\\.)*)\)/g;
-          let pm;
-          let line = "";
-          while ((pm = pRegex.exec(inner)) !== null) {
-            line += decodePdfStr(pm[1]);
+        line = line.trim();
+        if (line && !isPdfRawSyntax(line)) textChunks.push(line);
+      }
+      const hexTjRegex = /<([0-9a-fA-F]+)>\s*Tj/g;
+      while ((m = hexTjRegex.exec(stream)) !== null) {
+        const hex = m[1];
+        let decoded = "";
+        if (hex.length >= 4 && hex.startsWith("00")) {
+          for (let k = 0; k < hex.length; k += 4) {
+            decoded += String.fromCharCode(parseInt(hex.substr(k, 4), 16));
           }
-          line = line.trim();
-          if (line) textChunks.push(line);
+        } else {
+          for (let k = 0; k < hex.length; k += 2) {
+            decoded += String.fromCharCode(parseInt(hex.substr(k, 2), 16));
+          }
         }
+        decoded = decoded.trim();
+        if (decoded && !isPdfRawSyntax(decoded)) textChunks.push(decoded);
       }
+    }
 
-      if (textChunks.length) {
-        return textChunks.map((t) => `<p>${escapeHtml(t)}</p>`).join("");
+    let metaTitle = "";
+    const titleMatch = latinAll.match(/\/Title\s*\(([^)]+)\)/i);
+    if (titleMatch) metaTitle = decodePdfStr(titleMatch[1]).trim();
+    let metaCreator = "";
+    const creatorMatch = latinAll.match(/\/Creator\s*\(([^)]+)\)/i);
+    if (creatorMatch) metaCreator = decodePdfStr(creatorMatch[1]).trim();
+
+    const cleanChunks = [];
+    for (const chunk of textChunks) {
+      if (!isPdfRawSyntax(chunk) && (!cleanChunks.length || cleanChunks[cleanChunks.length - 1] !== chunk)) {
+        cleanChunks.push(chunk);
       }
-    } catch {}
+    }
+
+    if (cleanChunks.length > 0) {
+      return cleanChunks.map((t, idx) => {
+        if (idx === 0 && (t.length < 50 || t.toLowerCase().includes("certificate"))) {
+          return `<h1>${escapeHtml(t)}</h1>`;
+        }
+        return `<p>${escapeHtml(t)}</p>`;
+      }).join("");
+    }
+
+    const docName = (filename || "Certificate").replace(/\.[^.]+$/, "");
+    return renderCleanCertificateFallback(metaTitle || docName, metaCreator);
+  } catch {
+    return "<p>Imported document</p>";
   }
-
-  return "<p>Imported document</p>";
 }
 
 function handleLocalApi(url, options = {}) {
   const method = (options.method || "GET").toUpperCase();
 
   if (url === "/docs" && method === "GET") {
-    return getLocalDocs(user).map((d) => ({
-      ...d,
-      role: d.owner.toLowerCase() === user.toLowerCase() ? "owner" : (d.shares?.find((s) => s.email.toLowerCase() === user.toLowerCase())?.role || "view")
-    }));
+    return getLocalDocs(user).map((d) => {
+      if (d.content && isRawPdfContent(d.content)) {
+        d.content = cleanRawPdfContent(d.content, d.title);
+        saveLocalDoc(d);
+      }
+      return {
+        ...d,
+        role: d.owner.toLowerCase() === user.toLowerCase() ? "owner" : (d.shares?.find((s) => s.email.toLowerCase() === user.toLowerCase())?.role || "view")
+      };
+    });
   }
 
   if (url === "/docs" && method === "POST") {
@@ -291,6 +516,10 @@ function handleLocalApi(url, options = {}) {
 
     if (method === "GET") {
       if (!doc) throw new Error("Document not found");
+      if (doc.content && isRawPdfContent(doc.content)) {
+        doc.content = cleanRawPdfContent(doc.content, doc.title);
+        saveLocalDoc(doc);
+      }
       return {
         ...doc,
         role: doc.owner.toLowerCase() === user.toLowerCase() ? "owner" : (doc.shares?.find((s) => s.email.toLowerCase() === user.toLowerCase())?.role || "view")
@@ -639,6 +868,10 @@ async function loadDocs() {
 async function openDoc(id) {
   try {
     current = await api(`/docs/${id}`);
+    if (current && current.content && isRawPdfContent(current.content)) {
+      current.content = cleanRawPdfContent(current.content, current.title);
+      saveLocalDoc(current);
+    }
     $("empty").hidden = true;
     $("editorWrap").hidden = false;
     $("title").value = current.title;

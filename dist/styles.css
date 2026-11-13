@@ -1914,3 +1914,54 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
     display: none !important;
   }
 }
+
+/* Clean Certificate & Verified Document Presentation */
+.certificate-card {
+  max-width: 680px;
+  margin: 16px auto 28px;
+  padding: 32px 24px;
+  background: #fbfdfc;
+  border: 2px solid #2d5a43;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(45, 90, 67, 0.08);
+  text-align: center;
+  position: relative;
+}
+.certificate-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: #e8f5ee;
+  color: #1e6b47;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border-radius: 999px;
+  margin-bottom: 12px;
+}
+.certificate-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: #1a382b;
+  margin: 0 0 10px;
+  line-height: 1.25;
+}
+.certificate-subtitle {
+  font-size: 13px;
+  color: #556b60;
+  margin: 0 0 16px;
+}
+.certificate-seal {
+  display: inline-block;
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+.doc-page-break {
+  border: 0;
+  border-top: 1px dashed #cbd5e1;
+  margin: 32px 0;
+}
+
