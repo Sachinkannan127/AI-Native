@@ -582,6 +582,44 @@ async function handleCreateAccount(name, email) {
   message(`Welcome, ${createdUser.name}! Workspace created.`);
 }
 
+// PWA installation & iOS handling
+let deferredPrompt = null;
+
+function isIosDevice() {
+  const ua = window.navigator.userAgent.toLowerCase();
+  return /iphone|ipad|ipod/.test(ua);
+}
+
+function isStandaloneApp() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
+function openIosInstallModal() {
+  const modal = $("iosInstallModal");
+  if (modal) modal.hidden = false;
+}
+
+function closeIosInstallModal() {
+  const modal = $("iosInstallModal");
+  if (modal) modal.hidden = true;
+}
+
+async function triggerInstallPrompt() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const choice = await deferredPrompt.userChoice;
+    if (choice.outcome === "accepted") {
+      deferredPrompt = null;
+      if ($("navInstallBtn")) $("navInstallBtn").hidden = true;
+      if ($("headerInstallBtn")) $("headerInstallBtn").hidden = true;
+    }
+  } else if (isIosDevice() && !isStandaloneApp()) {
+    openIosInstallModal();
+  } else {
+    message("To install, use your browser's menu and select 'Install' or 'Add to Home screen'.");
+  }
+}
+
 async function init() {
   await loadUsers();
 
@@ -595,12 +633,77 @@ async function init() {
     $("userPill").hidden = true;
   }
 
-  // Mobile menu toggle
-  const mobileToggle = $("mobileMenuToggle");
-  if (mobileToggle) {
-    mobileToggle.onclick = () => {
-      $("appShell").classList.toggle("sidebar-open");
+  // Mobile drawer controls
+  const toggleDrawer = (open) => {
+    const shell = $("appShell");
+    if (!shell) return;
+    const shouldOpen = typeof open === "boolean" ? open : !shell.classList.contains("sidebar-open");
+    if (shouldOpen) {
+      shell.classList.add("sidebar-open");
+    } else {
+      shell.classList.remove("sidebar-open");
+    }
+  };
+
+  if ($("mobileMenuToggle")) $("mobileMenuToggle").onclick = () => toggleDrawer();
+  if ($("closeSidebarBtn")) $("closeSidebarBtn").onclick = () => toggleDrawer(false);
+  if ($("sidebarBackdrop")) $("sidebarBackdrop").onclick = () => toggleDrawer(false);
+
+  // PWA Install Triggers
+  if ($("navInstallBtn")) $("navInstallBtn").onclick = triggerInstallPrompt;
+  if ($("headerInstallBtn")) $("headerInstallBtn").onclick = triggerInstallPrompt;
+
+  // iOS Install Guidance handlers
+  if ($("closeIosInstallModal")) $("closeIosInstallModal").onclick = closeIosInstallModal;
+  if ($("iosDoneBtn")) $("iosDoneBtn").onclick = closeIosInstallModal;
+  if ($("iosInstallModal")) {
+    $("iosInstallModal").onclick = (e) => {
+      if (e.target === $("iosInstallModal")) closeIosInstallModal();
     };
+  }
+
+  // Show install button for iOS users if not already installed as standalone
+  if (isIosDevice() && !isStandaloneApp()) {
+    if ($("navInstallBtn")) $("navInstallBtn").hidden = false;
+    if ($("headerInstallBtn")) $("headerInstallBtn").hidden = false;
+  }
+
+  // Listen for beforeinstallprompt event (Android / Chromium desktop)
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if ($("navInstallBtn")) $("navInstallBtn").hidden = false;
+    if ($("headerInstallBtn")) $("headerInstallBtn").hidden = false;
+  });
+
+  window.addEventListener("appinstalled", () => {
+    deferredPrompt = null;
+    if ($("navInstallBtn")) $("navInstallBtn").hidden = true;
+    if ($("headerInstallBtn")) $("headerInstallBtn").hidden = true;
+    message("Ajaia Docs successfully installed!");
+  });
+
+  // Register Service Worker for offline capabilities
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker
+        .register("/sw.js")
+        .then((reg) => {
+          reg.onupdatefound = () => {
+            const installing = reg.installing;
+            if (installing) {
+              installing.onstatechange = () => {
+                if (installing.state === "installed" && navigator.serviceWorker.controller) {
+                  console.log("New version of Ajaia Docs available.");
+                }
+              };
+            }
+          };
+        })
+        .catch((err) => {
+          console.warn("ServiceWorker registration failed:", err);
+        });
+    });
   }
 
   // Setup landing actions
