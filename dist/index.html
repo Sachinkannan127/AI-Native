@@ -14,18 +14,20 @@
   <meta name="apple-mobile-web-app-title" content="Ajaia Docs">
   <meta name="application-name" content="Ajaia Docs">
   <meta name="format-detection" content="telephone=no">
-  <link rel="stylesheet" href="styles.css?v=11">
+  <link rel="stylesheet" href="styles.css?v=10">
 </head>
 <body>
   <div id="landing">
     <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div><div class="ambient ambient-three"></div>
     <nav class="site-nav">
-      <a class="brand" href="#"><span class="brand-mark">A</span><span>Ajaia<span class="brand-muted">Docs</span></span></a>
-      <div class="nav-links">
-        <a href="#features">Features</a>
-        <a href="#workflow">How it works</a>
-        <button class="nav-install-btn" id="navInstallBtn" hidden title="Install Ajaia Docs as app">Install App <span>↓</span></button>
-        <button class="nav-login" id="navOpen">Open workspace <span>↗</span></button>
+      <div class="site-nav-inner">
+        <a class="brand" href="#"><span class="brand-mark">A</span><span>Ajaia<span class="brand-muted">Docs</span></span></a>
+        <div class="nav-links">
+          <a href="#features">Features</a>
+          <a href="#workflow">How it works</a>
+          <button class="nav-install-btn" id="navInstallBtn" hidden title="Install Ajaia Docs as app">Install App <span>↓</span></button>
+          <button class="nav-login" id="navOpen">Open workspace <span>↗</span></button>
+        </div>
       </div>
     </nav>
     <section class="hero">
@@ -74,11 +76,13 @@
       </div>
     </section>
     <section class="closing-cta" id="workflow">
-      <div>
-        <div class="section-label">A BETTER STARTING POINT</div>
-        <h2>Make space for<br><em>what matters.</em></h2>
+      <div class="closing-cta-inner">
+        <div>
+          <div class="section-label">A BETTER STARTING POINT</div>
+          <h2>Make space for<br><em>what matters.</em></h2>
+        </div>
+        <button class="primary-action light" id="bottomOpen">Open Ajaia Docs <span>→</span></button>
       </div>
-      <button class="primary-action light" id="bottomOpen">Open Ajaia Docs <span>→</span></button>
     </section>
     <footer>
       <a class="brand" href="#"><span class="brand-mark">A</span><span>Ajaia<span class="brand-muted">Docs</span></span></a>
@@ -255,6 +259,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=11"></script>
+  <script src="app.js?v=10"></script>
 </body>
 </html>
