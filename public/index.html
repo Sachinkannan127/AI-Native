@@ -7,10 +7,10 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <meta name="theme-color" content="#27443b">
+  <meta name="theme-color" content="#ffffff">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Ajaia Docs">
   <meta name="application-name" content="Ajaia Docs">
   <meta name="format-detection" content="telephone=no">
@@ -32,32 +32,101 @@
     </nav>
     <section class="hero">
       <div class="hero-copy">
-        <div class="eyebrow"><span class="eyebrow-dot"></span>THE CALM WAY TO CREATE</div>
-        <h1>Your ideas,<br><em>in their element.</em></h1>
-        <p class="hero-lede">A focused space for meaningful work. Write freely, organize beautifully, and share with the people who make your best ideas better.</p>
+        <div class="eyebrow"><span class="eyebrow-dot"></span>FAST, THOUGHTFUL WRITING</div>
+        <h1>Write with clarity.<br><em>Collaborate with ease.</em></h1>
+        <p class="hero-lede">A distraction-free workspace built for speed. Draft ideas in clean typography, export to Word in one click, and share seamlessly with your team.</p>
         <div class="hero-actions">
-          <button class="primary-action" id="heroOpen">Start writing <span>→</span></button>
-          <a class="text-action" href="#features">Explore the workspace <span>↓</span></a>
+          <button class="primary-action" id="heroOpen">Start writing free <span>→</span></button>
+          <a class="text-action" href="#features">See how it works <span>↓</span></a>
+        </div>
+        <div class="hero-feature-tags">
+          <span class="feature-tag"><i>⚡</i> Instant Auto-Save</span>
+          <span class="feature-tag"><i>📄</i> Word Export</span>
+          <span class="feature-tag"><i>👥</i> Live Sharing</span>
+          <span class="feature-tag"><i>📱</i> Offline PWA</span>
         </div>
         <div class="trust-row">
-          <div class="avatar-stack"><span>AK</span><span>JM</span><span>SR</span><span>+</span></div>
-          <span>Trusted by thoughtful teams<br><b>who care about the details.</b></span>
+          <div class="avatar-stack"><span>SK</span><span>JM</span><span>AK</span><span>+</span></div>
+          <span>Trusted by thoughtful teams<br><b>who care about speed and craft.</b></span>
         </div>
       </div>
       <div class="hero-visual">
         <div class="glow"></div>
-        <div class="paper-card">
-          <div class="paper-top"><span class="paper-pill"><i></i> Untitled project</span><span class="paper-dots">•••</span></div>
-          <div class="paper-body">
-            <div class="paper-kicker">MONDAY, 12 AUGUST</div>
-            <h2>Make room<br>for good work.</h2>
-            <p>Great ideas do not need more noise. They need a place to land, take shape, and become something real.</p>
-            <div class="paper-line"></div>
-            <div class="paper-footer"><span>Written with intention</span><span>01 / 04</span></div>
+        <div class="editor-mockup" id="heroMockup" title="Click to launch workspace">
+          <!-- Window Header / Titlebar -->
+          <div class="mockup-titlebar">
+            <div class="mockup-window-controls">
+              <span class="win-dot dot-close"></span>
+              <span class="win-dot dot-min"></span>
+              <span class="win-dot dot-max"></span>
+            </div>
+            <div class="mockup-doc-title">
+              <span class="mockup-doc-icon">📄</span>
+              <span class="mockup-doc-name">Product-Vision-2026.docx</span>
+              <span class="mockup-save-badge"><i class="badge-dot"></i> Saved</span>
+            </div>
+            <div class="mockup-live-collab">
+              <div class="collab-avatars">
+                <span class="collab-avatar user-you" title="You (Sachin)">SK</span>
+                <span class="collab-avatar user-team" title="Alex">AM</span>
+              </div>
+              <span class="collab-pulse" title="Live sync active"></span>
+            </div>
+          </div>
+          <!-- Window Toolbar -->
+          <div class="mockup-toolbar">
+            <div class="mockup-tools-left">
+              <span class="mock-tool active"><b>B</b></span>
+              <span class="mock-tool"><i>I</i></span>
+              <span class="mock-tool"><u>U</u></span>
+              <span class="mock-separator"></span>
+              <span class="mock-tool active-format">H1</span>
+              <span class="mock-tool">H2</span>
+              <span class="mock-tool">• List</span>
+            </div>
+            <div class="mockup-tools-right">
+              <span class="mock-export-btn">↓ Word (.doc)</span>
+            </div>
+          </div>
+          <!-- Editor Content Preview -->
+          <div class="mockup-body">
+            <div class="mockup-kicker">PROJECT SPECIFICATION · DRAFT 04</div>
+            <h2>Architecture for Modern Focus</h2>
+            <p>
+              Great tools disappear into the work. They give ideas room to breathe, organize notes with intuitive permissions, and stay lightning fast on any device.
+            </p>
+            <div class="mockup-active-line">
+              <span class="mockup-cursor"></span>
+              <span class="mockup-cursor-tag">Sachin editing</span>
+              <span class="mockup-typed-text">Offline-first architecture with instant team collaboration</span>
+            </div>
+            <div class="mockup-checklist">
+              <div class="mockup-check-item">
+                <span class="check-box">✓</span>
+                <span>One-click Microsoft Word export with clean styling</span>
+              </div>
+              <div class="mockup-check-item">
+                <span class="check-box">✓</span>
+                <span>End-to-end device sync with installable PWA support</span>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="float-note note-one"><span class="note-icon">✦</span><b>Saved as you write</b><small>Your work stays up to date</small></div>
-        <div class="float-note note-two"><span class="note-check">✓</span><b>Shared with your team</b><small>Clear access controls</small></div>
+        <!-- Floating Feature Badges -->
+        <div class="float-badge badge-export">
+          <span class="badge-icon">📄</span>
+          <div class="badge-meta">
+            <b>Word Export Ready</b>
+            <small>Formatted .doc · 28 KB</small>
+          </div>
+        </div>
+        <div class="float-badge badge-sync">
+          <span class="badge-icon pulse-green">✦</span>
+          <div class="badge-meta">
+            <b>Instant Sync Active</b>
+            <small>PWA · Works Offline</small>
+          </div>
+        </div>
       </div>
     </section>
     <section class="metrics">
@@ -93,7 +162,6 @@
 
   <div id="appShell" hidden>
     <div class="workspace-ambient workspace-ambient-one"></div><div class="workspace-ambient workspace-ambient-two"></div>
-    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
     <header class="app-header">
       <div class="header-left-group">
         <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle menu" title="Toggle menu">☰</button>
@@ -117,6 +185,7 @@
     </header>
     <div id="message" role="alert"></div>
     <main>
+      <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
       <aside class="premium-sidebar" id="sidebar">
         <div class="sidebar-heading">
           <span class="sidebar-eyebrow">YOUR SPACE</span>
@@ -138,7 +207,19 @@
       </aside>
       <section class="workspace">
         <div class="workspace-topline"><span>DOCUMENT STUDIO</span><span class="workspace-date">A quiet place for good work <i>✦</i></span></div>
-        <div class="empty" id="empty">Create or open a document to start writing.</div>
+        <div class="empty" id="empty">
+          <div class="empty-badge">✦</div>
+          <h2>Create or open a document to start writing.</h2>
+          <p>Your thoughts, notes, and drafts stay synced and protected in your personal space.</p>
+          <div class="empty-actions">
+            <button class="empty-create-btn" id="emptyCreateBtn">
+              <span class="empty-btn-plus">+</span> New Document
+            </button>
+            <button class="empty-browse-btn" id="emptyBrowseBtn">
+              <span>▧</span> Open Documents
+            </button>
+          </div>
+        </div>
         <div id="editorWrap" hidden>
           <div class="editor-heading">
             <div class="editor-breadcrumb">Workspace <span>/</span> Documents <span>/</span> <b>Current document</b></div>

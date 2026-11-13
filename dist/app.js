@@ -708,6 +708,7 @@ async function init() {
 
   // Setup landing actions
   $("heroOpen").onclick = handleEnterApp;
+  if ($("heroMockup")) $("heroMockup").onclick = handleEnterApp;
   $("navOpen").onclick = handleEnterApp;
   $("bottomOpen").onclick = handleEnterApp;
 
@@ -717,6 +718,19 @@ async function init() {
     e.preventDefault();
     showLanding();
   };
+  if ($("navHomeLink")) {
+    $("navHomeLink").onclick = (e) => {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+  }
+  if ($("sidebarHomeBtn")) {
+    $("sidebarHomeBtn").onclick = () => {
+      showLanding();
+      $("appShell").classList.remove("sidebar-open");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+  }
 
   $("userPill").onclick = () => openAuthModal({ tab: "existing", allowClose: true });
   $("openAuthModalBtn").onclick = () => openAuthModal({ tab: "create", allowClose: Boolean(user) });
@@ -759,6 +773,13 @@ async function init() {
       message(e.message);
     }
   };
+
+  if ($("emptyCreateBtn")) {
+    $("emptyCreateBtn").onclick = () => $("new").click();
+  }
+  if ($("emptyBrowseBtn")) {
+    $("emptyBrowseBtn").onclick = () => toggleDrawer(true);
+  }
 
   $("title").oninput = save;
   $("content").oninput = save;
